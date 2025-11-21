@@ -16,8 +16,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _contactController = TextEditingController();
+  
   // Default role is student
-  final UserRole _selectedRole = UserRole.student;
+  final UserRole _defaultRole = UserRole.student;
 
   // Design Constants
   static const Color primaryBlue = Color(0xFF3B5998);
@@ -40,14 +41,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         fullName: _fullNameController.text.trim(),
-        role: _selectedRole,
+        role: _defaultRole, // Hardcoded to student
         contact: _contactController.text.trim(),
       );
 
-      // If registration is successful (no error in state), pop back to login
-      // The auth state listener in main or wrapper should handle navigation if signed in
-      // But typically we might want to just go back to login to sign in or if auto-signed in go to dashboard
-      // For now, let's check for errors
       final authState = ref.read(authControllerProvider);
       if (!authState.hasError && mounted) {
          Navigator.pop(context);

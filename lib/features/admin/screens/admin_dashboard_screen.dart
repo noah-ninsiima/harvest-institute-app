@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../auth/screens/profile_screen.dart';
 import '../../shared/models/user_model.dart';
+
+// State provider for the selected bottom nav index
+final adminNavIndexProvider = StateProvider<int>((ref) => 0);
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -72,21 +76,89 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _promoteUser(String uid) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'role': 'instructor',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User promoted to Instructor successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error promoting user: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = ref.watch(adminNavIndexProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: Text(selectedIndex == 0 ? 'Admin Dashboard' : 'Manage Users'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).signOut();
+           PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              } else if (value == 'logout') {
+                ref.read(authControllerProvider.notifier).signOut();
+              }
             },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      body: Padding(
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: selectedIndex,
+        onTap: (index) => ref.read(adminNavIndexProvider.notifier).state = index,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Courses'),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
+        ],
+      ),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: [
+          _buildCreateCourseView(),
+          _buildManageUsersView(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreateCourseView() {
+    return Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
@@ -154,7 +226,15 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 .toList();
 
                             if (instructors.isEmpty) {
-                              return const Text('No instructors found. Create an instructor account first.');
+                              return const Text('No instructors found. Promote a user first.');
+                            }
+
+                            // Check if previously selected instructor is still in the list
+                            if (_selectedInstructor != null) {
+                              final instructorExists = instructors.any((i) => i.uid == _selectedInstructor!.uid);
+                              if (!instructorExists) {
+                                _selectedInstructor = null;
+                              }
                             }
 
                             return DropdownButtonFormField<UserModel>(
@@ -173,6 +253,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                 setState(() {
                                   _selectedInstructor = value;
                                 });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Please select an instructor';
+                                }
+                                return null;
                               },
                             );
                           },
@@ -198,7 +284,50 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ],
           ),
         ),
-      ),
+      );
+  }
+
+  Widget _buildManageUsersView() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final users = snapshot.data!.docs
+            .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
+            .toList();
+
+        if (users.isEmpty) {
+          return const Center(child: Text('No students found.'));
+        }
+
+        return ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                title: Text(user.fullName),
+                subtitle: Text(user.email),
+                trailing: ElevatedButton(
+                  onPressed: () => _promoteUser(user.uid),
+                  child: const Text('Promote to Instructor'),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -12,10 +12,10 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
 
-final userProvider = FutureProvider<UserModel?>((ref) async {
-  final authState = await ref.watch(authStateChangesProvider.future);
-  if (authState == null) return null;
-  return ref.watch(authRepositoryProvider).getUserData(authState.uid);
+final userProvider = StreamProvider<UserModel?>((ref) {
+  final authState = ref.watch(authStateChangesProvider).value;
+  if (authState == null) return Stream.value(null);
+  return ref.watch(authRepositoryProvider).getUserStream(authState.uid);
 });
 
 class AuthController extends StateNotifier<AsyncValue<void>> {
@@ -46,6 +46,19 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       password: password,
       fullName: fullName,
       role: role,
+      contact: contact,
+    ));
+  }
+
+  Future<void> updateProfile({
+    required String uid,
+    required String fullName,
+    required String contact,
+  }) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => _authRepository.updateUserData(
+      uid: uid,
+      fullName: fullName,
       contact: contact,
     ));
   }

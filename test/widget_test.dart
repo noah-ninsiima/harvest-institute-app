@@ -1,30 +1,55 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockito/mockito.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:myapp/features/auth/repositories/auth_repository.dart';
+import 'package:myapp/features/auth/screens/login_screen.dart';
+import 'package:myapp/features/auth/widgets/role_check_wrapper.dart';
+import 'package:myapp/features/shared/models/user_model.dart';
 
-import 'package:myapp/main.dart';
+// Mock AuthRepository
+class MockAuthRepository extends Mock implements AuthRepository {
+  final MockUser? _user;
+  MockAuthRepository(this._user);
+
+  @override
+  Stream<User?> get authStateChanges => Stream.value(_user);
+  
+  @override
+  Future<UserModel?> getUserData(String uid) async {
+    if (_user == null) return null;
+    return UserModel(
+      uid: _user!.uid,
+      email: _user!.email!,
+      fullName: 'Test User',
+      role: UserRole.student,
+      contact: '1234567890',
+      createdAt: DateTime.now(),
+    );
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('RoleCheckWrapper navigates to LoginScreen when no user is logged in', (WidgetTester tester) async {
+    // Mock AuthRepository with no user
+    final mockAuthRepository = MockAuthRepository(null);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(mockAuthRepository),
+        ],
+        child: const MaterialApp(
+          home: RoleCheckWrapper(),
+        ),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify LoginScreen is displayed
+    expect(find.byType(LoginScreen), findsOneWidget);
   });
 }

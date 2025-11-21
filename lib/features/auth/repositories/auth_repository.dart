@@ -104,6 +104,30 @@ class AuthRepository {
     }
   }
 
+  Stream<UserModel?> getUserStream(String uid) {
+    return _firestore.collection('users').doc(uid).snapshots().map((doc) {
+      if (doc.exists && doc.data() != null) {
+        return UserModel.fromMap(doc.data() as Map<String, dynamic>);
+      }
+      return null;
+    });
+  }
+
+  Future<void> updateUserData({
+    required String uid,
+    required String fullName,
+    required String contact,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'fullName': fullName,
+        'contact': contact,
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
