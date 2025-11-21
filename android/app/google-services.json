@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1057436707640",
+    "project_id": "harvest-institute-app",
+    "storage_bucket": "harvest-institute-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1057436707640:android:097973228b077fa537efcd",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1057436707640-rati9cht12hgf2f9pl1ajrtambd6egvg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJutwGWl8XoKkqlB1YZjNFTWlr1_5VQcE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1057436707640-rati9cht12hgf2f9pl1ajrtambd6egvg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
