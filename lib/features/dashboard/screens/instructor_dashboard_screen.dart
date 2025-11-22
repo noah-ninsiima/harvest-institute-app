@@ -1,57 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth/controllers/auth_controller.dart';
-import '../../auth/screens/profile_screen.dart';
+import '../../../services/auth_service.dart';
+import '../../auth/widgets/role_check_wrapper.dart';
 
-class InstructorDashboardScreen extends ConsumerWidget {
+class InstructorDashboardScreen extends StatefulWidget {
   const InstructorDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<InstructorDashboardScreen> createState() => _InstructorDashboardScreenState();
+}
+
+class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
+  final AuthService _authService = AuthService();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Instructor Dashboard'),
         actions: [
-           PopupMenuButton<String>(
-            icon: const Icon(Icons.account_circle),
-            onSelected: (value) {
-              if (value == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await _authService.signOut();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
+                  (Route<dynamic> route) => false,
                 );
-              } else if (value == 'logout') {
-                ref.read(authControllerProvider.notifier).signOut(ref, context);
               }
             },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: Colors.black54),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.black54),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
       ),
-      // Removed FloatingActionButton as Logout is now in the Profile dropdown
       body: const Center(
-        child: Text('Welcome Instructor!'),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.school, size: 64, color: Colors.green),
+            SizedBox(height: 16),
+            Text('Welcome, Instructor!', style: TextStyle(fontSize: 24)),
+          ],
+        ),
       ),
     );
   }

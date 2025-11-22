@@ -1,1 +1,33 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"harvest-institute-app","appId":"1:1057436707640:android:097973228b077fa537efcd","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"harvest-institute-app","configurations":{"android":"1:1057436707640:android:097973228b077fa537efcd","web":"1:1057436707640:web:5c516aa2e9028e5437efcd"}}}}}}
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "default",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "*.local"
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "harvest-institute-app",
+          "appId": "1:1057436707640:android:097973228b077fa537efcd",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "harvest-institute-app",
+          "configurations": {
+            "android": "1:1057436707640:android:097973228b077fa537efcd",
+            "web": "1:1057436707640:web:5c516aa2e9028e5437efcd"
+          }
+        }
+      }
+    }
+  }
+}
