@@ -12,16 +12,25 @@ class RoleCheckWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the auth state directly from the controller/repository stream
     final authState = ref.watch(authStateChangesProvider);
+    
+    // We also need to watch the user data, but only if we are authenticated
     final userProfile = ref.watch(userProvider);
 
     return authState.when(
       data: (user) {
-        if (user == null) return const LoginScreen();
+        // If no user is logged in, show LoginScreen immediately
+        if (user == null) {
+           return const LoginScreen();
+        }
         
+        // If user is logged in, check their role via the userProfile provider
         return userProfile.when(
           data: (userModel) {
-            if (userModel == null) return const Scaffold(body: Center(child: Text("User data not found")));
+            if (userModel == null) {
+              return const Scaffold(body: Center(child: Text("User data not found")));
+            }
             
             switch (userModel.role) {
               case UserRole.student:
@@ -33,11 +42,11 @@ class RoleCheckWrapper extends ConsumerWidget {
             }
           },
           loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (e, s) => Scaffold(body: Center(child: Text('Error: $e'))),
+          error: (e, s) => Scaffold(body: Center(child: Text('Error loading profile: $e'))),
         );
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, s) => Scaffold(body: Center(child: Text('Error: $e'))),
+      error: (e, s) => Scaffold(body: Center(child: Text('Error checking auth: $e'))),
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../repositories/auth_repository.dart';
 import '../../shared/models/user_model.dart';
+import '../widgets/role_check_wrapper.dart';
 
 final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<void>>((ref) {
   return AuthController(ref.watch(authRepositoryProvider));
@@ -63,8 +65,24 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     ));
   }
 
-  Future<void> signOut() async {
+  Future<void> signOut(WidgetRef ref, BuildContext context) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _authRepository.signOut());
+    try {
+      await _authRepository.signOut();
+      ref.invalidate(userProvider);
+      ref.invalidate(authStateChangesProvider);
+      state = const AsyncValue.data(null);
+      
+      // Explicitly navigate to RoleCheckWrapper (Root) to force a fresh state check
+      // This handles cases where the UI might not update automatically, especially on Web
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
+          (route) => false,
+        );
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 }

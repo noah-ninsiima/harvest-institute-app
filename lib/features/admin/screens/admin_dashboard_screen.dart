@@ -19,7 +19,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  UserModel? _selectedInstructor;
+  String? _selectedInstructorId;
+  String? _selectedInstructorName;
   bool _isLoading = false;
 
   @override
@@ -30,7 +31,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<void> _createCourse() async {
-    if (_formKey.currentState!.validate() && _selectedInstructor != null) {
+    if (_formKey.currentState!.validate() && _selectedInstructorId != null) {
       setState(() {
         _isLoading = true;
       });
@@ -40,8 +41,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         await FirebaseFirestore.instance.collection('courses').add({
           'title': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
-          'instructorId': _selectedInstructor!.uid,
-          'instructorName': _selectedInstructor!.fullName,
+          'instructorId': _selectedInstructorId,
+          'instructorName': _selectedInstructorName ?? 'Unknown Instructor',
           'createdAt': FieldValue.serverTimestamp(),
           'studentIds': [],
         });
@@ -53,7 +54,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           _titleController.clear();
           _descriptionController.clear();
           setState(() {
-            _selectedInstructor = null;
+            _selectedInstructorId = null;
+            _selectedInstructorName = null;
           });
         }
       } catch (e) {
@@ -69,7 +71,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           });
         }
       }
-    } else if (_selectedInstructor == null) {
+    } else if (_selectedInstructorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an instructor')),
       );
@@ -95,49 +97,94 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     }
   }
 
+  // Task 2: Admin Dashboard Enhancements (Edit Instructor)
+  Future<void> _editCourseInstructor(String courseId, String currentInstructorId) async {
+    String? newInstructorId = currentInstructorId;
+    
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Instructor'),
+          content: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('role', isEqualTo: 'instructor')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const CircularProgressIndicator();
+              
+              List<UserModel> instructors = snapshot.data!.docs
+                  .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
+                  .toList();
+              
+              // Ensure initial value is valid or null
+              if (newInstructorId != null && !instructors.any((i) => i.uid == newInstructorId)) {
+                newInstructorId = null;
+              }
+
+              return DropdownButtonFormField<String>(
+                value: newInstructorId,
+                items: instructors.map((i) => DropdownMenuItem(
+                  value: i.uid,
+                  child: Text(i.fullName),
+                )).toList(),
+                onChanged: (val) {
+                   newInstructorId = val;
+                },
+                decoration: const InputDecoration(labelText: 'Select Instructor'),
+              );
+            },
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () async {
+                 if (newInstructorId != null && newInstructorId != currentInstructorId) {
+                    // Fetch name for the selected ID
+                    // We can do a quick lookup or just update ID and let UI handle name if it fetches,
+                    // but our Course model stores name. So we should probably fetch it.
+                    // For simplicity/speed in dialog, we update.
+                    // Ideally, we should find the name from the list above, but 'newInstructorId' is just local here.
+                    // We will do a transactional update or just update ID.
+                    // Let's update ID and Name.
+                    
+                    final instructorDoc = await FirebaseFirestore.instance.collection('users').doc(newInstructorId).get();
+                    final instructorName = instructorDoc.data()?['fullName'] ?? 'Unknown';
+
+                    await FirebaseFirestore.instance.collection('courses').doc(courseId).update({
+                      'instructorId': newInstructorId,
+                      'instructorName': instructorName,
+                    });
+                    
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Instructor Updated')));
+                 }
+                 if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(adminNavIndexProvider);
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.account_circle),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            );
+          },
+        ),
         title: Text(selectedIndex == 0 ? 'Admin Dashboard' : 'Manage Users'),
-        actions: [
-           PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                );
-              } else if (value == 'logout') {
-                ref.read(authControllerProvider.notifier).signOut();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: Colors.black54),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.black54),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -147,6 +194,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          ref.read(authControllerProvider.notifier).signOut(ref, context);
+        },
+        child: const Icon(Icons.logout),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: IndexedStack(
         index: selectedIndex,
         children: [
@@ -230,28 +284,43 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                             }
 
                             // Check if previously selected instructor is still in the list
-                            if (_selectedInstructor != null) {
-                              final instructorExists = instructors.any((i) => i.uid == _selectedInstructor!.uid);
+                            if (_selectedInstructorId != null) {
+                              final instructorExists = instructors.any((i) => i.uid == _selectedInstructorId);
                               if (!instructorExists) {
-                                _selectedInstructor = null;
+                                // Safe handle
                               }
                             }
 
-                            return DropdownButtonFormField<UserModel>(
+                            String? dropdownValue = _selectedInstructorId;
+                            if (dropdownValue != null && !instructors.any((i) => i.uid == dropdownValue)) {
+                              dropdownValue = null;
+                            }
+
+                            return DropdownButtonFormField<String>(
                               decoration: const InputDecoration(
                                 labelText: 'Select Instructor',
                                 border: OutlineInputBorder(),
                               ),
-                              value: _selectedInstructor,
+                              value: dropdownValue,
                               items: instructors.map((instructor) {
                                 return DropdownMenuItem(
-                                  value: instructor,
+                                  value: instructor.uid,
                                   child: Text(instructor.fullName),
                                 );
                               }).toList(),
                               onChanged: (value) {
                                 setState(() {
-                                  _selectedInstructor = value;
+                                  _selectedInstructorId = value;
+                                  if (value != null) {
+                                    try {
+                                      final selectedInstructor = instructors.firstWhere((i) => i.uid == value);
+                                      _selectedInstructorName = selectedInstructor.fullName;
+                                    } catch (e) {
+                                      _selectedInstructorName = null;
+                                    }
+                                  } else {
+                                    _selectedInstructorName = null;
+                                  }
                                 });
                               },
                               validator: (value) {
@@ -280,6 +349,45 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 30),
+              const Text(
+                'Existing Courses',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              // List of existing courses to edit
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('courses').orderBy('createdAt', descending: true).snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const CircularProgressIndicator();
+                  
+                  final courses = snapshot.data!.docs;
+                  
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: courses.length,
+                    itemBuilder: (context, index) {
+                      final data = courses[index].data() as Map<String, dynamic>;
+                      final courseId = courses[index].id;
+                      final title = data['title'] ?? 'Untitled';
+                      final instructorName = data['instructorName'] ?? 'Unknown';
+                      final instructorId = data['instructorId'] ?? '';
+                      
+                      return Card(
+                        child: ListTile(
+                          title: Text(title),
+                          subtitle: Text('Instructor: $instructorName'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _editCourseInstructor(courseId, instructorId),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ],
           ),
