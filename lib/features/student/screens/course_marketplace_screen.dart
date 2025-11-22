@@ -42,11 +42,16 @@ class _CourseMarketplaceScreenState extends State<CourseMarketplaceScreen> {
           return StreamBuilder<List<Map<String, dynamic>>>(
             stream: _courseService.getStudentEnrollments(currentUser!.uid),
             builder: (context, enrollmentSnapshot) {
+              // If enrollments are loading, show loading indicator, or just show courses but maybe disable buttons
+              // Better to wait to ensure we don't show enrolled courses as available
               if (enrollmentSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (enrollmentSnapshot.hasError) {
-                return Center(child: Text('Error: ${enrollmentSnapshot.error}'));
+                // If there's an error fetching enrollments (e.g. permission), 
+                // we should probably still show courses but maybe warn user
+                debugPrint('Error fetching enrollments: ${enrollmentSnapshot.error}');
+                return Center(child: Text('Error checking enrollments: ${enrollmentSnapshot.error}'));
               }
 
               final List<String> enrolledCourseIds = enrollmentSnapshot.hasData
