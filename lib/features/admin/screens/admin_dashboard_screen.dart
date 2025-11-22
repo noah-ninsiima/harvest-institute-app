@@ -142,13 +142,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               onPressed: () async {
                  if (newInstructorId != null && newInstructorId != currentInstructorId) {
                     // Fetch name for the selected ID
-                    // We can do a quick lookup or just update ID and let UI handle name if it fetches,
-                    // but our Course model stores name. So we should probably fetch it.
-                    // For simplicity/speed in dialog, we update.
-                    // Ideally, we should find the name from the list above, but 'newInstructorId' is just local here.
-                    // We will do a transactional update or just update ID.
-                    // Let's update ID and Name.
-                    
                     final instructorDoc = await FirebaseFirestore.instance.collection('users').doc(newInstructorId).get();
                     final instructorName = instructorDoc.data()?['fullName'] ?? 'Unknown';
 
@@ -175,16 +168,44 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.account_circle),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            );
-          },
-        ),
         title: Text(selectedIndex == 0 ? 'Admin Dashboard' : 'Manage Users'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.account_circle),
+            onSelected: (value) {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              } else if (value == 'logout') {
+                ref.read(authControllerProvider.notifier).signOut(ref, context);
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.black54),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -194,13 +215,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ref.read(authControllerProvider.notifier).signOut(ref, context);
-        },
-        child: const Icon(Icons.logout),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      // Removed FloatingActionButton as Logout is now in the Profile dropdown
       body: IndexedStack(
         index: selectedIndex,
         children: [

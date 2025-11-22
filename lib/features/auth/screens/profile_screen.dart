@@ -62,90 +62,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           // If not editing, show display view
           if (!_isEditing) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: CircleAvatar(
-                      radius: 50,
-                      child: Icon(Icons.person, size: 50),
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: CircleAvatar(
+                        radius: 50,
+                        child: Icon(Icons.person, size: 50),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildProfileItem('Full Name', user.fullName),
-                  const Divider(),
-                  _buildProfileItem('Email', user.email),
-                  const Divider(),
-                  _buildProfileItem('Contact', user.contact.isEmpty ? 'Not set' : user.contact),
-                  const Divider(),
-                  _buildProfileItem('Role', user.role.toString().split('.').last.toUpperCase()),
-                ],
+                    const SizedBox(height: 24),
+                    _buildProfileItem('Full Name', user.fullName),
+                    const Divider(),
+                    _buildProfileItem('Email', user.email),
+                    const Divider(),
+                    _buildProfileItem('Contact', user.contact.isEmpty ? 'Not set' : user.contact),
+                    const Divider(),
+                    _buildProfileItem('Role', user.role.toString().split('.').last.toUpperCase()),
+                  ],
+                ),
               ),
             );
           }
 
           // Edit View
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _fullNameController,
-                    decoration: const InputDecoration(labelText: 'Full Name'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _contactController,
-                    decoration: const InputDecoration(labelText: 'Contact Number'),
-                  ),
-                  const SizedBox(height: 24),
-                  if (authState.isLoading)
-                    const CircularProgressIndicator()
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              setState(() {
-                                _isEditing = false;
-                              });
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              if (_formKey.currentState!.validate()) {
-                                await ref.read(authControllerProvider.notifier).updateProfile(
-                                  uid: user.uid,
-                                  fullName: _fullNameController.text.trim(),
-                                  contact: _contactController.text.trim(),
-                                );
-                                
-                                if (mounted) {
-                                  setState(() {
-                                    _isEditing = false;
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Profile updated successfully')),
-                                  );
-                                }
-                              }
-                            },
-                            child: const Text('Save'),
-                          ),
-                        ),
-                      ],
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _fullNameController,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                      validator: (value) => value!.isEmpty ? 'Required' : null,
                     ),
-                ],
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _contactController,
+                      decoration: const InputDecoration(labelText: 'Contact Number'),
+                    ),
+                    const SizedBox(height: 24),
+                    if (authState.isLoading)
+                      const CircularProgressIndicator()
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isEditing = false;
+                                });
+                              },
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (_formKey.currentState!.validate()) {
+                                  await ref.read(authControllerProvider.notifier).updateProfile(
+                                    uid: user.uid,
+                                    fullName: _fullNameController.text.trim(),
+                                    contact: _contactController.text.trim(),
+                                  );
+                                  
+                                  if (mounted) {
+                                    setState(() {
+                                      _isEditing = false;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Profile updated successfully')),
+                                    );
+                                  }
+                                }
+                              },
+                              child: const Text('Save'),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           );

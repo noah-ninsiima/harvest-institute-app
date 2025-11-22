@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:myapp/services/seed_service.dart';
 import '../controllers/auth_controller.dart';
 import 'register_screen.dart';
 
@@ -14,6 +15,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
+  final SeedService _seedService = SeedService(); // Instance of SeedService
 
   // Design Constants
   static const Color primaryBlue = Color(0xFF3B5998);
@@ -212,6 +214,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           child: const Text('Sign in with Google'),
+                        ),
+                        const SizedBox(height: 16),
+                        // TEMP SEED BUTTON
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              await _seedService.seedDatabase(); // Use the instance method
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Database seeded successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error seeding database: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.storage),
+                          label: const Text('Seed Database (DEV ONLY)'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber[800],
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 24),
                         // Create Account Row
