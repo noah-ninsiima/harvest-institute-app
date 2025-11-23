@@ -125,48 +125,124 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Use theme values
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary; // Dark Navy
+    final accentColor = theme.colorScheme.secondary; // Teal
+    final textColor = theme.colorScheme.onPrimary; // Light text
+
     return Scaffold(
-      appBar: AppBar(title: Text(_isSigningUp ? 'Sign Up' : 'Login')),
+      // Background color is handled by theme (dark navy)
+      appBar: AppBar(
+        title: Text(_isSigningUp ? 'Sign Up' : 'Login'),
+        backgroundColor: Colors.transparent, // Make app bar transparent to blend
+        elevation: 0,
+      ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
+              // LOGO SECTION
+              Container(
+                margin: const EdgeInsets.only(bottom: 48.0),
+                child: Column(
+                  children: [
+                    // Replace this Icon with your Image asset when you have one
+                    // Image.asset('assets/images/harvest_logo.png', height: 100),
+                    Icon(
+                      Icons.school_rounded, // Placeholder icon
+                      size: 80,
+                      color: accentColor, // Use theme accent color (Teal)
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "HARVEST",
+                      style: theme.textTheme.headlineLarge?.copyWith(
+                        color: accentColor,
+                        letterSpacing: 4.0, // Increased letter spacing for modern look
+                      ),
+                    ),
+                    Text(
+                      "INSTITUTE",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: textColor.withOpacity(0.7),
+                        letterSpacing: 6.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Tagline / Welcome Text
+              Text(
+                _isSigningUp ? 'Join the Harvest' : 'Welcome Back',
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Raising skilled laborers for the End-Time Harvest",
+                style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32.0),
+
+              // Input Fields
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
                 keyboardType: TextInputType.emailAddress,
+                style: TextStyle(color: textColor),
               ),
               const SizedBox(height: 16.0),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
                 obscureText: true,
+                style: TextStyle(color: textColor),
               ),
               const SizedBox(height: 24.0),
+              
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withOpacity(0.5)),
+                    ),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.redAccent),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
+              
               _isLoading
                   ? const CircularProgressIndicator()
                   : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ElevatedButton(
                           onPressed: _handleEmailAuth,
-                          child: Text(_isSigningUp ? 'Sign Up' : 'Sign In'),
+                          child: Text(_isSigningUp ? 'Create Account' : 'Sign In'),
                         ),
+                        const SizedBox(height: 16),
                         TextButton(
                           onPressed: () {
                             setState(() {
-                              _isSigningUp = !_isSigningUp; // Toggle between sign-up and sign-in modes
-                              _errorMessage = null; // Clear error message on mode switch
+                              _isSigningUp = !_isSigningUp;
+                              _errorMessage = null;
                             });
                           },
                           child: Text(
@@ -175,14 +251,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : 'Don\'t have an account? Sign Up',
                           ),
                         ),
-                        const Divider(height: 40, thickness: 1, indent: 20, endIndent: 20),
-                        ElevatedButton.icon(
+                        
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: textColor.withOpacity(0.2))),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text("OR", style: TextStyle(color: textColor.withOpacity(0.5))),
+                            ),
+                            Expanded(child: Divider(color: textColor.withOpacity(0.2))),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        OutlinedButton.icon(
                           onPressed: _handleGoogleSignIn,
-                          icon: const FaIcon(FontAwesomeIcons.google, color: Colors.white),
-                          label: const Text('Sign In with Google', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red, // Google brand color
-                            minimumSize: const Size(double.infinity, 45), // Make button full width
+                          icon: const FaIcon(FontAwesomeIcons.google, size: 20),
+                          label: const Text('Continue with Google'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: textColor,
+                            side: BorderSide(color: textColor.withOpacity(0.3)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ],
