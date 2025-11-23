@@ -137,3 +137,37 @@ exports.addDefaultUserRole = functionsV1
       return null;
     }
   });
+
+/**
+ * TEMPORARY ADMIN FUNCTION: Sets custom user claims.
+ * Call this from the app (or a temporary script/button) to fix existing users.
+ * Arguments: { uid: string, role: 'admin' | 'instructor' | 'student' }
+ * 
+ * WARNING: This function is OPEN for testing. 
+ * IN PRODUCTION, ADD AUTH CHECKS SO ONLY SUPER-ADMIN CAN CALL IT.
+ * FOR NOW, WE ASSUME YOU WILL DELETE/DISABLE IT AFTER FIXING USERS.
+ */
+exports.setUserRole = onCall({ memory: "256MiB" }, async (request) => {
+  const { uid, role } = request.data;
+
+  if (!uid || !role) {
+    throw new HttpsError("invalid-argument", "The function must be called with 'uid' and 'role'.");
+  }
+
+  if (!['admin', 'instructor', 'student'].includes(role)) {
+    throw new HttpsError("invalid-argument", "Role must be one of: admin, instructor, student.");
+  }
+
+  try {
+    await admin.auth().setCustomUserClaims(uid, { role });
+    console.log(`Successfully set role '${role}' for user ${uid}`);
+    
+    // Also update Firestore for consistency
+    await admin.firestore().collection("users").doc(uid).set({ role }, { merge: true });
+
+    return { message: `Success! User ${uid} is now a ${role}. Please sign out and sign back in.` };
+  } catch (error) {
+    console.error("Error setting user role:", error);
+    throw new HttpsError("internal", "Unable to set user role.");
+  }
+});

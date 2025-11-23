@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // For FirebaseAuthException
+import 'package:cloud_functions/cloud_functions.dart'; // For calling setUserRole
 import '../../../services/auth_service.dart'; // Corrected relative path
 import '../widgets/role_check_wrapper.dart'; // Corrected relative path
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // For Google Icon
@@ -120,6 +121,70 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  // TEMPORARY DEBUG FUNCTION
+  Future<void> _showRoleFixDialog() async {
+    final uidController = TextEditingController();
+    String selectedRole = 'student';
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Debug: Set User Role'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: uidController,
+                decoration: const InputDecoration(labelText: 'User UID'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: selectedRole,
+                items: const [
+                  DropdownMenuItem(value: 'student', child: Text('Student')),
+                  DropdownMenuItem(value: 'instructor', child: Text('Instructor')),
+                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => selectedRole = value);
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final uid = uidController.text.trim();
+              if (uid.isEmpty) return;
+
+              try {
+                final callable = FirebaseFunctions.instance.httpsCallable('setUserRole');
+                await callable.call({'uid': uid, 'role': selectedRole});
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Role updated! User must re-login.')),
+                  );
+                  Navigator.pop(context);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Set Role'),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -274,6 +339,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             side: BorderSide(color: textColor.withOpacity(0.3)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 40),
+                        // DEBUG TOOL - REMOVE IN PRODUCTION
+                        TextButton(
+                          onPressed: _showRoleFixDialog,
+                          child: Text(
+                            "Debug: Fix User Roles",
+                            style: TextStyle(color: Colors.orange.withOpacity(0.5), fontSize: 12),
                           ),
                         ),
                       ],
