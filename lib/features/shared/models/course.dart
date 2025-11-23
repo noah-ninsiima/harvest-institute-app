@@ -7,6 +7,7 @@ class Course {
   final double tuition;
   final String instructorId;
   final DateTime createdAt;
+  final String schoolCategory; 
 
   Course({
     required this.courseId,
@@ -15,6 +16,7 @@ class Course {
     required this.tuition,
     required this.instructorId,
     required this.createdAt,
+    required this.schoolCategory,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +27,7 @@ class Course {
       'tuition': tuition,
       'instructorId': instructorId,
       'createdAt': Timestamp.fromDate(createdAt),
+      'schoolCategory': schoolCategory,
     };
   }
 
@@ -36,6 +39,7 @@ class Course {
       tuition: (map['tuition'] ?? 0.0).toDouble(),
       instructorId: map['instructorId'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
+      schoolCategory: map['schoolCategory'] ?? 'Leadership & Ministry', // Default
     );
   }
 }

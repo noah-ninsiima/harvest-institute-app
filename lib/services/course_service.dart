@@ -18,6 +18,22 @@ class CourseService {
     });
   }
 
+  // --- Stream courses by category ---
+  Stream<List<Map<String, dynamic>>> getCoursesByCategory(String category) {
+    return _firestore
+        .collection('courses')
+        .where('schoolCategory', isEqualTo: category)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    });
+  }
+
   // --- Get student's enrollments ---
   Stream<List<Map<String, dynamic>>> getStudentEnrollments(String userId) {
     return _firestore
