@@ -14,7 +14,8 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
   final _nameController = TextEditingController();
   final _durationController = TextEditingController();
   final _tuitionController = TextEditingController();
-  String _selectedSchoolCategory = 'Leadership & Ministry'; // Default
+  String _selectedSchoolCategory = 'Leadership & Ministry';
+  String? _selectedInstructorId; // Stores the selected Instructor ID
   bool _isLoading = false;
 
   final List<String> _schoolCategories = [
@@ -45,7 +46,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
         name: _nameController.text.trim(),
         duration: _durationController.text.trim(),
         tuition: double.tryParse(_tuitionController.text.trim()) ?? 0.0,
-        instructorId: 'tbd', // Placeholder, potentially selectable later
+        instructorId: _selectedInstructorId ?? 'unassigned', // Save the selected instructor ID
         createdAt: DateTime.now(),
         schoolCategory: _selectedSchoolCategory,
       );
@@ -74,6 +75,50 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
         });
       }
     }
+  }
+
+  Widget _buildInstructorDropdown() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'instructor')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const CircularProgressIndicator();
+        }
+
+        final instructors = snapshot.data!.docs;
+
+        // Ensure _selectedInstructorId is valid or null
+        // If previously selected instructor is no longer in the list (e.g., role changed), reset it.
+        if (_selectedInstructorId != null) {
+           bool exists = instructors.any((doc) => doc.id == _selectedInstructorId);
+           if (!exists) {
+             _selectedInstructorId = null;
+           }
+        }
+
+        return DropdownButtonFormField<String>(
+          value: _selectedInstructorId,
+          decoration: const InputDecoration(labelText: 'Assign Instructor'),
+          items: instructors.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final name = data['full_name'] ?? data['email'] ?? 'Unknown';
+            return DropdownMenuItem<String>(
+              value: doc.id, // Store ONLY the ID
+              child: Text(name),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedInstructorId = value;
+            });
+          },
+          validator: (value) => value == null ? 'Please assign an instructor' : null,
+        );
+      },
+    );
   }
 
   @override
@@ -113,6 +158,8 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   }
                 },
               ),
+              const SizedBox(height: 16),
+              _buildInstructorDropdown(), // Add the instructor dropdown here
               const SizedBox(height: 16),
               TextFormField(
                 controller: _durationController,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // For FirebaseAuthException
-import 'package:cloud_functions/cloud_functions.dart'; // For calling setUserRole
-import '../../../services/auth_service.dart'; // Corrected relative path
-import '../widgets/role_check_wrapper.dart'; // Corrected relative path
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // For Google Icon
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../services/auth_service.dart';
+import '../widgets/role_check_wrapper.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'register_screen.dart'; // Import RegisterScreen
 
 class LoginScreen extends StatefulWidget {
-  final String? message; // Optional message, e.g., for unknown roles
+  final String? message;
 
   const LoginScreen({super.key, this.message});
 
@@ -20,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
-  bool _isSigningUp = false; // To switch between login and signup UI
 
   @override
   void initState() {
@@ -39,7 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _navigateToRoleCheckWrapper() {
     if (mounted) {
-      // Replaces the entire navigation stack, ensuring user cannot go back to login
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
         (Route<dynamic> route) => false,
@@ -47,41 +46,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleEmailAuth() async {
+  Future<void> _handleSignIn() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null; // Clear any previous error message
+      _errorMessage = null;
     });
 
     try {
-      if (_isSigningUp) {
-        await _authService.createUserWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
-        );
-      } else {
-        await _authService.signInWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
-        );
-      }
-      _navigateToRoleCheckWrapper(); // On success, navigate via RoleCheckWrapper
+      await _authService.signInWithEmailAndPassword(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+      _navigateToRoleCheckWrapper();
     } on FirebaseAuthException catch (e) {
       String msg;
-      if (_isSigningUp) {
-        switch (e.code) {
-          case 'weak-password': msg = 'The password provided is too weak.'; break;
-          case 'email-already-in-use': msg = 'An account already exists for that email.'; break;
-          case 'invalid-email': msg = 'The email address is invalid.'; break;
-          default: msg = e.message ?? 'An unknown error occurred during sign-up.';
-        }
-      } else { // Signing In
-        switch (e.code) {
-          case 'user-not-found': msg = 'No user found for that email.'; break;
-          case 'wrong-password': msg = 'Wrong password provided for that user.'; break;
-          case 'invalid-email': msg = 'The email address is invalid.'; break;
-          default: msg = e.message ?? 'An unknown authentication error occurred.';
-        }
+      switch (e.code) {
+        case 'user-not-found': msg = 'No user found for that email.'; break;
+        case 'wrong-password': msg = 'Wrong password provided.'; break;
+        case 'invalid-email': msg = 'The email address is invalid.'; break;
+        case 'user-disabled': msg = 'This user account has been disabled.'; break;
+        default: msg = e.message ?? 'An unknown authentication error occurred.';
       }
       setState(() {
         _errorMessage = msg;
@@ -91,9 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = e.toString();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -105,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authService.signInWithGoogle();
-      _navigateToRoleCheckWrapper(); // On success, navigate via RoleCheckWrapper
+      _navigateToRoleCheckWrapper();
     } on FirebaseAuthException catch (e) {
       debugPrint('Google Sign-In Error: ${e.code} - ${e.message}');
       setState(() {
@@ -117,9 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = 'An unexpected error occurred during Google Sign-In.';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -187,20 +167,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // Use theme values
     final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary; // Dark Navy
-    final accentColor = theme.colorScheme.secondary; // Teal
-    final textColor = theme.colorScheme.onPrimary; // Light text
+    final accentColor = theme.colorScheme.secondary;
+    final textColor = theme.colorScheme.onPrimary;
 
     return Scaffold(
-      // Background color is handled by theme (dark navy)
       appBar: AppBar(
-        title: Text(_isSigningUp ? 'Sign Up' : 'Login'),
-        backgroundColor: Colors.transparent, // Make app bar transparent to blend
+        title: const Text('Login'),
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: Center(
@@ -214,19 +190,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 margin: const EdgeInsets.only(bottom: 48.0),
                 child: Column(
                   children: [
-                    // Replace this Icon with your Image asset when you have one
-                    // Image.asset('assets/images/harvest_logo.png', height: 100),
                     Icon(
-                      Icons.school_rounded, // Placeholder icon
+                      Icons.school_rounded,
                       size: 80,
-                      color: accentColor, // Use theme accent color (Teal)
+                      color: accentColor,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       "HARVEST",
                       style: theme.textTheme.headlineLarge?.copyWith(
                         color: accentColor,
-                        letterSpacing: 4.0, // Increased letter spacing for modern look
+                        letterSpacing: 4.0,
                       ),
                     ),
                     Text(
@@ -240,9 +214,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               
-              // Tagline / Welcome Text
               Text(
-                _isSigningUp ? 'Join the Harvest' : 'Welcome Back',
+                'Welcome Back',
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
@@ -299,22 +272,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ElevatedButton(
-                          onPressed: _handleEmailAuth,
-                          child: Text(_isSigningUp ? 'Create Account' : 'Sign In'),
+                          onPressed: _handleSignIn,
+                          child: const Text('Sign In'),
                         ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () {
-                            setState(() {
-                              _isSigningUp = !_isSigningUp;
-                              _errorMessage = null;
-                            });
+                            // Navigate to RegisterScreen for sign-up
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                            );
                           },
-                          child: Text(
-                            _isSigningUp
-                                ? 'Already have an account? Sign In'
-                                : 'Don\'t have an account? Sign Up',
-                          ),
+                          child: const Text('Don\'t have an account? Sign Up'),
                         ),
                         
                         const SizedBox(height: 24),
@@ -343,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         
                         const SizedBox(height: 40),
-                        // DEBUG TOOL - REMOVE IN PRODUCTION
+                        // DEBUG TOOL
                         TextButton(
                           onPressed: _showRoleFixDialog,
                           child: Text(
