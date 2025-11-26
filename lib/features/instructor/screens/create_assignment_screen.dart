@@ -80,15 +80,20 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('courses')
-                    // TODO: In a real app, filter by instructor_id. For demo/admin, maybe all courses?
-                    // Using where clause assuming instructor_id field exists
-                    .where('instructor_id', isEqualTo: user?.uid) 
+                    // Correct field name based on Course model: 'instructorId' not 'instructor_id'
+                    .where('instructorId', isEqualTo: user?.uid) 
                     .snapshots(),
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text("Error loading courses: ${snapshot.error}", style: const TextStyle(color: Colors.red)),
+                    );
+                  }
                   if (!snapshot.hasData) return const CircularProgressIndicator();
+                  
                   final courses = snapshot.data!.docs;
                   
-                  // If instructor has no courses assigned in DB, show message
                   if (courses.isEmpty) {
                      return const Padding(
                        padding: EdgeInsets.only(bottom: 16.0),

@@ -4,7 +4,8 @@ import '../../../services/auth_service.dart';
 import '../../auth/widgets/role_check_wrapper.dart';
 import 'admin_reports_screen.dart';
 import 'create_course_screen.dart';
-import '../providers/admin_stats_provider.dart'; // Import the provider
+import '../providers/admin_stats_provider.dart';
+import '../../shared/widgets/side_menu_drawer.dart'; // Import SideMenuDrawer
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -15,19 +16,28 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   final AuthService _authService = AuthService();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     final statsAsyncValue = ref.watch(adminStatsProvider);
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
+        leading: IconButton(
+          icon: const CircleAvatar(
+            child: Icon(Icons.person),
+          ),
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer(); 
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              // Refresh the stats
               ref.invalidate(adminStatsProvider);
             },
           ),
@@ -45,6 +55,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           ),
         ],
       ),
+      drawer: const SideMenuDrawer(), // Add Drawer
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(adminStatsProvider);
@@ -61,7 +72,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
               const SizedBox(height: 16),
               
-              // Stats Grid
               statsAsyncValue.when(
                 data: (stats) => GridView.count(
                   crossAxisCount: 2,

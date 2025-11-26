@@ -5,7 +5,8 @@ import '../../../services/auth_service.dart';
 import '../../auth/widgets/role_check_wrapper.dart';
 import '../../instructor/screens/create_assignment_screen.dart';
 import '../../instructor/screens/assignment_list_screen.dart';
-import '../../shared/models/course.dart'; // Import Course model
+import '../../shared/models/course.dart'; 
+import '../../shared/widgets/side_menu_drawer.dart'; // Import SideMenuDrawer
 
 class InstructorDashboardScreen extends StatefulWidget {
   const InstructorDashboardScreen({super.key});
@@ -17,12 +18,22 @@ class InstructorDashboardScreen extends StatefulWidget {
 class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
   final AuthService _authService = AuthService();
   final User? currentUser = FirebaseAuth.instance.currentUser;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Instructor Dashboard'),
+        leading: IconButton(
+          icon: const CircleAvatar(
+            child: Icon(Icons.person),
+          ),
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer(); 
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -38,6 +49,7 @@ class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
           ),
         ],
       ),
+      drawer: const SideMenuDrawer(), // Add Drawer
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -54,7 +66,6 @@ class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
             ),
             const SizedBox(height: 32),
             
-            // Action Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -96,7 +107,6 @@ class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
             
             const SizedBox(height: 32),
             
-            // Assigned Courses Section
             const Text(
               'My Assigned Courses',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -144,7 +154,6 @@ class _InstructorDashboardScreenState extends State<InstructorDashboardScreen> {
                           subtitle: Text('${course.schoolCategory} • ${course.duration}'),
                           trailing: const Icon(Icons.arrow_forward),
                           onTap: () {
-                            // Navigate to course details or specific management page
                           },
                         ),
                       );

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../services/auth_service.dart';
 import '../../auth/widgets/role_check_wrapper.dart';
-import '../../student/screens/course_list_screen.dart'; // Corrected import path
+import '../../student/screens/course_list_screen.dart';
+import '../../shared/widgets/side_menu_drawer.dart'; // Import SideMenuDrawer
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({super.key});
@@ -12,12 +13,25 @@ class StudentDashboardScreen extends StatefulWidget {
 
 class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   final AuthService _authService = AuthService();
+  // We can control the drawer using the Scaffold's context if we don't provide a leading widget, 
+  // or explicit key if we want to open it from a custom button.
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Student Dashboard'),
+        // Leading icon to open drawer (User Profile Icon)
+        leading: IconButton(
+          icon: const CircleAvatar(
+            child: Icon(Icons.person),
+          ),
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer(); 
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -33,6 +47,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ),
         ],
       ),
+      drawer: const SideMenuDrawer(), // Ensure this is present
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -44,7 +59,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
             const SizedBox(height: 24),
             
-            // Quick Actions Section
             Text(
               'Quick Actions',
               style: Theme.of(context).textTheme.titleLarge,
@@ -57,7 +71,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     icon: Icons.qr_code_scanner,
                     label: 'Scan QR',
                     onTap: () {
-                      // TODO: Implement QR Scanner
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('QR Scanner coming soon!')),
                       );
@@ -70,7 +83,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     icon: Icons.payment,
                     label: 'Pay Tuition',
                     onTap: () {
-                      // TODO: Implement Payment
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Payment module coming soon!')),
                       );
@@ -82,7 +94,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             
             const SizedBox(height: 32),
             
-            // Schools Section
             Text(
               'Schools',
               style: Theme.of(context).textTheme.titleLarge,
