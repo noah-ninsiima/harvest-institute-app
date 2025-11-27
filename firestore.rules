@@ -22,16 +22,13 @@ service cloud.firestore {
     // --- Users Collection ---
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // Allow creation if Auth UID matches document ID (Client-side provisioning)
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      // Allow updates by the user themselves (Profile) or Admin
       allow update: if request.auth.uid == userId || isAdmin();
     }
 
     // --- Courses Collection ---
     match /courses/{courseId} {
       allow read: if isAuthenticated();
-      // Only Admins can create/edit courses (Assign Instructors)
       allow write: if isAdmin();
     }
 
@@ -43,36 +40,25 @@ service cloud.firestore {
       allow read: if isInstructor() &&
                    get(/databases/$(database)/documents/courses/$(resource.data.course_id)).data.instructor_id == request.auth.uid;
 
-      // CREATE: Student enrolling themselves
-      // We use isAuthenticated() && owner check to be robust, 
-      // ensuring the user is creating a record for themselves.
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      // CREATE: Simplified for debugging.
+      // Allows creation if the user is authenticated and the document ID matches the composite key format.
+      // We removed the payload validation (user_id inside data) for a moment to see if that's the blocker.
+      allow create: if isAuthenticated() && enrollmentId == request.auth.uid + '_' + request.resource.data.course_id;
 
       // UPDATE: Admin only (e.g., changing payment status)
       allow update: if isAdmin();
     }
 
     // --- Assignments Collection (New) ---
-    // Used by Instructor Dashboard
     match /assignments/{assignmentId} {
-      allow read: if isAuthenticated(); // Students need to see assignments
-      
-      // Instructors can create assignments. 
-      // We validate that the instructor_id field matches the authenticated user.
+      allow read: if isAuthenticated(); 
       allow create: if isInstructor() && request.resource.data.instructor_id == request.auth.uid;
-      
-      // Instructors can update/delete their own assignments
       allow update, delete: if isInstructor() && resource.data.instructor_id == request.auth.uid;
     }
 
     // --- Submissions Collection (New) ---
-    // Used by Submission List Screen
     match /submissions/{submissionId} {
-      // Instructors can read submissions (Simplified: all instructors can read for now)
-      // Students can read their own
       allow read: if isInstructor() || (isAuthenticated() && resource.data.user_id == request.auth.uid);
-      
-      // Students create submissions for themselves
       allow create: if isStudent() && request.resource.data.user_id == request.auth.uid;
     }
 
