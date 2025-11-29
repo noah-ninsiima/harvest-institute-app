@@ -1,27 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../controllers/auth_controller.dart';
 import '../widgets/role_check_wrapper.dart';
+import '../../dashboard/screens/student_dashboard_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'register_screen.dart'; // Import RegisterScreen
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   final String? message;
 
   const LoginScreen({super.key, this.message});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final AuthService _authService = AuthService();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController(text: "ninsiima30@gmail.com");
+  final TextEditingController _passwordController = TextEditingController(text: "N@t528b0n668");
   String? _errorMessage;
-  bool _isLoading = false;
-
+  
   @override
   void initState() {
     super.initState();
@@ -48,130 +45,78 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleSignIn() async {
     setState(() {
-      _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      await _authService.signInWithEmailAndPassword(
+      await ref.read(authControllerProvider.notifier).signInWithMoodle(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      _navigateToRoleCheckWrapper();
-    } on FirebaseAuthException catch (e) {
-      String msg;
-      switch (e.code) {
-        case 'user-not-found': msg = 'No user found for that email.'; break;
-        case 'wrong-password': msg = 'Wrong password provided.'; break;
-        case 'invalid-email': msg = 'The email address is invalid.'; break;
-        case 'user-disabled': msg = 'This user account has been disabled.'; break;
-        default: msg = e.message ?? 'An unknown authentication error occurred.';
-      }
-      setState(() {
-        _errorMessage = msg;
-      });
+      // State changes are handled by ref.listen in build()
     } catch (e) {
+      // Exceptions from the async call itself (if not caught in controller)
       setState(() {
         _errorMessage = e.toString();
       });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
-      _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      await _authService.signInWithGoogle();
-      _navigateToRoleCheckWrapper();
-    } on FirebaseAuthException catch (e) {
-      debugPrint('Google Sign-In Error: ${e.code} - ${e.message}');
-      setState(() {
-        _errorMessage = e.message ?? 'Google Sign-In failed.';
-      });
+      await ref.read(authControllerProvider.notifier).signInWithGoogle();
+      
+      final state = ref.read(authControllerProvider);
+      if (state.hasError) {
+        setState(() {
+          _errorMessage = state.error.toString();
+        });
+      } else {
+        _navigateToRoleCheckWrapper();
+      }
     } catch (e) {
       debugPrint('General Google Sign-In Error: $e');
       setState(() {
         _errorMessage = 'An unexpected error occurred during Google Sign-In.';
       });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  // TEMPORARY DEBUG FUNCTION
-  Future<void> _showRoleFixDialog() async {
-    final uidController = TextEditingController();
-    String selectedRole = 'student';
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Debug: Set User Role'),
-        content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: uidController,
-                decoration: const InputDecoration(labelText: 'User UID'),
-              ),
-              const SizedBox(height: 16),
-              DropdownButton<String>(
-                value: selectedRole,
-                items: const [
-                  DropdownMenuItem(value: 'student', child: Text('Student')),
-                  DropdownMenuItem(value: 'instructor', child: Text('Instructor')),
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => selectedRole = value);
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final uid = uidController.text.trim();
-              if (uid.isEmpty) return;
-
-              try {
-                final callable = FirebaseFunctions.instance.httpsCallable('setUserRole');
-                await callable.call({'uid': uid, 'role': selectedRole});
-                
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Role updated! User must re-login.')),
-                  );
-                  Navigator.pop(context);
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Set Role'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Listener for Auth State changes
+    ref.listen<AsyncValue<void>>(authControllerProvider, (previous, next) {
+      next.when(
+        data: (_) {
+          debugPrint("Login Successful, Navigating...");
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const StudentDashboardScreen()),
+          );
+        },
+        error: (error, stack) {
+          debugPrint("Login Failed: $error");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
+          );
+          setState(() {
+            _errorMessage = error.toString();
+          });
+        },
+        loading: () {
+          // Optional: You can handle loading state here if needed
+        },
+      );
+    });
+
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.secondary;
     final textColor = theme.colorScheme.onPrimary;
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -230,8 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  labelText: 'Username or Email',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 style: TextStyle(color: textColor),
@@ -266,63 +211,49 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ElevatedButton(
-                          onPressed: _handleSignIn,
-                          child: const Text('Sign In'),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () {
-                            // Navigate to RegisterScreen for sign-up
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                            );
-                          },
-                          child: const Text('Don\'t have an account? Sign Up'),
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: textColor.withOpacity(0.2))),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text("OR", style: TextStyle(color: textColor.withOpacity(0.5))),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton(
+                    onPressed: isLoading ? null : _handleSignIn,
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                            Expanded(child: Divider(color: textColor.withOpacity(0.2))),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
+                          )
+                        : const Text('Sign In'),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: textColor.withOpacity(0.2))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text("OR", style: TextStyle(color: textColor.withOpacity(0.5))),
+                      ),
+                      Expanded(child: Divider(color: textColor.withOpacity(0.2))),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
 
-                        OutlinedButton.icon(
-                          onPressed: _handleGoogleSignIn,
-                          icon: const FaIcon(FontAwesomeIcons.google, size: 20),
-                          label: const Text('Continue with Google'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: textColor,
-                            side: BorderSide(color: textColor.withOpacity(0.3)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 40),
-                        // DEBUG TOOL
-                        TextButton(
-                          onPressed: _showRoleFixDialog,
-                          child: Text(
-                            "Debug: Fix User Roles",
-                            style: TextStyle(color: Colors.orange.withOpacity(0.5), fontSize: 12),
-                          ),
-                        ),
-                      ],
+                  OutlinedButton.icon(
+                    onPressed: isLoading ? null : _handleGoogleSignIn,
+                    icon: const FaIcon(FontAwesomeIcons.google, size: 20),
+                    label: const Text('Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: textColor,
+                      side: BorderSide(color: textColor.withOpacity(0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

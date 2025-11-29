@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/auth_service.dart';
 import '../../auth/widgets/role_check_wrapper.dart';
-import '../../student/screens/course_list_screen.dart';
-import '../../shared/widgets/side_menu_drawer.dart'; // Import SideMenuDrawer
+import '../../student/screens/course_detail_screen.dart';
+import '../../shared/widgets/side_menu_drawer.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../student/providers/student_providers.dart';
 
-class StudentDashboardScreen extends StatefulWidget {
+// Make StudentDashboardScreen a ConsumerStatefulWidget to use Ref
+class StudentDashboardScreen extends ConsumerStatefulWidget {
   const StudentDashboardScreen({super.key});
 
   @override
-  State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
+  ConsumerState<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
 }
 
-class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+class _StudentDashboardScreenState extends ConsumerState<StudentDashboardScreen> {
   final AuthService _authService = AuthService();
-  // We can control the drawer using the Scaffold's context if we don't provide a leading widget, 
-  // or explicit key if we want to open it from a custom button.
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
+    final enrolledCoursesAsync = ref.watch(enrolledCoursesProvider);
+
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
         title: const Text('Student Dashboard'),
-        // Leading icon to open drawer (User Profile Icon)
         leading: IconButton(
           icon: const CircleAvatar(
             child: Icon(Icons.person),
@@ -36,6 +39,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // We also need to logout from Moodle
+              final moodleAuth = ref.read(moodleAuthServiceProvider);
+              await moodleAuth.logout();
+              
               await _authService.signOut();
               if (mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
@@ -47,7 +54,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ),
         ],
       ),
-      drawer: const SideMenuDrawer(), // Ensure this is present
+      drawer: const SideMenuDrawer(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -95,41 +102,91 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             const SizedBox(height: 32),
             
             Text(
-              'Schools',
+              'My Courses',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            SchoolCategoryCard(
-              title: 'Leadership & Ministry',
-              color: Colors.purple.shade700,
-              icon: Icons.church,
-              onTap: () => _navigateToCourseList(context, 'Leadership & Ministry'),
-            ),
-            const SizedBox(height: 16),
-            SchoolCategoryCard(
-              title: 'Practical Business',
-              color: Colors.blue.shade700,
-              icon: Icons.business_center,
-              onTap: () => _navigateToCourseList(context, 'Practical Business'),
-            ),
-            const SizedBox(height: 16),
-            SchoolCategoryCard(
-              title: 'Technology',
-              color: Colors.teal.shade700,
-              icon: Icons.computer,
-              onTap: () => _navigateToCourseList(context, 'Technology'),
+            
+            // AsyncValue handling for Courses
+            enrolledCoursesAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (err, stack) => Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                    const SizedBox(height: 8),
+                    Text('Failed to load courses: $err'),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () => ref.refresh(enrolledCoursesProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (courses) {
+                if (courses.isEmpty) {
+                  return Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.school_outlined, size: 60, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No in-progress courses",
+                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: courses.length,
+                  itemBuilder: (context, index) {
+                    final course = courses[index];
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.book, color: Theme.of(context).primaryColor),
+                        ),
+                        title: Text(
+                          course.fullname,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        subtitle: Text(course.shortname),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CourseDetailScreen(course: course),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _navigateToCourseList(BuildContext context, String category) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CourseListScreen(category: category),
       ),
     );
   }
@@ -163,63 +220,6 @@ class QuickActionCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class SchoolCategoryCard extends StatelessWidget {
-  final String title;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const SchoolCategoryCard({
-    super.key,
-    required this.title,
-    required this.color,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 100,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [color.withOpacity(0.8), color],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Row(
-              children: [
-                Icon(icon, size: 40, color: Colors.white),
-                const SizedBox(width: 24),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                const Icon(Icons.arrow_forward_ios, color: Colors.white70),
-              ],
-            ),
           ),
         ),
       ),

@@ -27,6 +27,8 @@ dependencies:
   shared_preferences: ^2.3.2
   file_picker: ^8.1.2
   url_launcher: ^6.3.0
+  dio: ^5.4.0
+  flutter_secure_storage: ^9.0.0
   
   # UI & Features
   mobile_scanner: ^5.2.3

@@ -21,9 +21,11 @@ service cloud.firestore {
 
     // --- Users Collection ---
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() || userId.matches('moodle_.*');
       allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if userId.matches('moodle_.*'); // Allow sync from app for moodle users
       allow update: if request.auth.uid == userId || isAdmin();
+      allow update: if userId.matches('moodle_.*'); // Allow sync update
     }
 
     // --- Courses Collection ---
