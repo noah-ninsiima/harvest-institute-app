@@ -133,5 +133,63 @@ class MoodleStudentService {
       rethrow;
     }
   }
-}
 
+  Future<Map<String, dynamic>> getSubmissionStatus(
+      String token, int assignId, int userId) async {
+    try {
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'mod_assign_get_submission_status',
+          'moodlewsrestformat': 'json',
+          'assignid': assignId,
+          'userid': userId,
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error fetching submission status: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> saveSubmission(
+      String token, int assignId, String onlineText) async {
+    try {
+      // Note: plugindata needs to be structured correctly for the specific plugin (onlinetext)
+      // This is a simplified example assuming standard 'onlinetext_editor' structure.
+      // Moodle API often requires nested array/object structures that are tricky with simple maps in Dio.
+      // We might need to use standard URL encoding or a specific structure.
+
+      // For 'onlinetext' plugin:
+      // plugindata[onlinetext_editor][text] = ...
+      // plugindata[onlinetext_editor][format] = 1
+      // plugindata[onlinetext_editor][itemid] = ... (usually handled by moodle if new)
+
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'mod_assign_save_submission',
+          'moodlewsrestformat': 'json',
+          'assignmentid': assignId,
+          'plugindata[onlinetext_editor][text]': onlineText,
+          'plugindata[onlinetext_editor][format]': 1, // HTML format
+          // 'plugindata[files_filemanager]': 0, // If we handled files
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      _handleResponse(response);
+
+      // Optionally call mod_assign_submit_for_grading if required by the assignment configuration
+      // But often save_submission is enough for draft or direct submission depending on settings.
+    } catch (e) {
+      debugPrint('Error saving submission: $e');
+      rethrow;
+    }
+  }
+}
