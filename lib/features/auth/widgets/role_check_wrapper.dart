@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/auth_service.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
-import '../../dashboard/screens/instructor_dashboard_screen.dart';
+// import '../../dashboard/screens/instructor_dashboard_screen.dart'; // Replaced
+import '../../dashboard/screens/teacher_dashboard_screen.dart';
 import '../../dashboard/screens/student_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 
@@ -110,8 +111,8 @@ class _RoleResolverState extends State<RoleResolver> {
 
         if (role == 'admin') {
           return const AdminDashboardScreen();
-        } else if (role == 'instructor') {
-          return const InstructorDashboardScreen();
+        } else if (role == 'instructor' || role == 'teacher') { // Added 'teacher' just in case
+          return const TeacherDashboard();
         } else if (role == 'student') {
           return const StudentDashboardScreen();
         } else {

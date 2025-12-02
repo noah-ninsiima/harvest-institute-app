@@ -20,15 +20,26 @@ class MoodleCourseModel {
   });
 
   factory MoodleCourseModel.fromJson(Map<String, dynamic> json) {
+    // Helper to safely parse doubles
+    double? parseProgress(dynamic value) {
+      if (value == null) return 0.0; // Default to 0.0 as requested
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
     return MoodleCourseModel(
       id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       fullname: json['fullname']?.toString() ?? '',
       shortname: json['shortname']?.toString() ?? '',
-      progress: double.tryParse(json['progress']?.toString() ?? ''),
+      progress: parseProgress(json['progress']),
       category: json['category']?.toString(),
       startDate: int.tryParse(json['startdate']?.toString() ?? ''),
       endDate: int.tryParse(json['enddate']?.toString() ?? ''),
-      imageUrl: json['courseimage'] is String ? json['courseimage'] as String : null,
+      // Handle courseimage safely (Moodle sometimes returns false/null/empty string)
+      imageUrl: (json['courseimage'] != null && json['courseimage'] is String && (json['courseimage'] as String).isNotEmpty)
+          ? json['courseimage'] as String
+          : null,
     );
   }
 
