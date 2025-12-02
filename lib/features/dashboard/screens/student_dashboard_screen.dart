@@ -7,7 +7,8 @@ import '../../auth/widgets/role_check_wrapper.dart';
 import '../../student/screens/course_detail_screen.dart';
 import '../../shared/widgets/side_menu_drawer.dart';
 import '../../student/providers/student_providers.dart';
-import '../../student/screens/qr_scanner_screen.dart';
+import '../../auth/controllers/auth_controller.dart'; // For currentUserProfileProvider
+import '../../student/screens/attendance_scan_screen.dart';
 
 // Make StudentDashboardScreen a ConsumerStatefulWidget to use Ref
 class StudentDashboardScreen extends ConsumerStatefulWidget {
@@ -70,6 +71,7 @@ class _StudentDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final enrolledCoursesAsync = ref.watch(enrolledCoursesProvider);
+    final userAsync = ref.watch(currentUserProfileProvider);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -107,9 +109,13 @@ class _StudentDashboardScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome, Student!',
-              style: Theme.of(context).textTheme.headlineMedium,
+            userAsync.when(
+              data: (user) => Text(
+                'Welcome, ${user?.firstname ?? "Student"}!',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              loading: () => const Text('Welcome, Student!'),
+              error: (_, __) => const Text('Welcome, Student!'),
             ),
             const SizedBox(height: 24),
 
@@ -128,7 +134,7 @@ class _StudentDashboardScreenState
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const QRScannerScreen(),
+                          builder: (context) => const AttendanceScanScreen(),
                         ),
                       );
                     },

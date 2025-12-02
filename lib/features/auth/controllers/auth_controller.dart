@@ -27,6 +27,17 @@ final userProvider = StreamProvider<UserModel?>((ref) {
   return ref.watch(authRepositoryProvider).getUserStream(authState.uid);
 });
 
+final currentUserProfileProvider = FutureProvider<MoodleUserModel?>((ref) async {
+  final authService = ref.watch(moodleAuthServiceProvider);
+  final token = await authService.getStoredToken();
+  
+  // Debug log
+  debugPrint('currentUserProfileProvider: fetching profile for token: $token');
+  
+  if (token == null) return null;
+  return authService.getUserProfile(token);
+});
+
 class AuthController extends StateNotifier<AsyncValue<void>> {
   final AuthRepository _authRepository;
   final MoodleAuthService _moodleAuthService;
@@ -50,16 +61,6 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       // 3. Silent Sync to Firestore
       await _syncMoodleUserToFirestore(moodleUser);
       debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
-      
-      // Note: We aren't signing in with Firebase Auth here, just syncing data.
-      // The app flow might need to adjust if it relies heavily on FirebaseAuth.currentUser.
-      // For now, we are assuming the app uses the user data from Firestore or Moodle token.
-      // However, to maintain compatibility with existing Firebase structure, 
-      // we might need to create a custom token or just rely on the Firestore document existence.
-      // 
-      // Since the instruction says "Hybrid" and checks Firestore, we will assume
-      // the existence of the Firestore document is sufficient for the app logic, 
-      // OR we might need to sign in anonymously to Firebase to access Firestore if rules require auth.
       
       debugPrint('Moodle Sign In Successful. Setting state to AsyncData.');
       state = const AsyncValue.data(null);
@@ -132,6 +133,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       
       ref.invalidate(userProvider);
       ref.invalidate(authStateChangesProvider);
+      ref.invalidate(currentUserProfileProvider);
       state = const AsyncValue.data(null);
       
       if (context.mounted) {
