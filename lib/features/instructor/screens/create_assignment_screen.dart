@@ -102,7 +102,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                   }
 
                   return DropdownButtonFormField<String>(
-                    value: _selectedCourseId,
+                    initialValue: _selectedCourseId,
                     decoration: const InputDecoration(labelText: 'Select Course'),
                     items: courses.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;

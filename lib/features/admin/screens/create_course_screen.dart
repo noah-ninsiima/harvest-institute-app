@@ -100,7 +100,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
         }
 
         return DropdownButtonFormField<String>(
-          value: _selectedInstructorId,
+          initialValue: _selectedInstructorId,
           decoration: const InputDecoration(labelText: 'Assign Instructor'),
           items: instructors.map((doc) {
             final data = doc.data() as Map<String, dynamic>;
@@ -142,7 +142,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedSchoolCategory,
+                initialValue: _selectedSchoolCategory,
                 decoration: const InputDecoration(labelText: 'School Category'),
                 items: _schoolCategories.map((category) {
                   return DropdownMenuItem(

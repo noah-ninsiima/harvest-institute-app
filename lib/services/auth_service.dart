@@ -34,7 +34,7 @@ class AuthService {
       return userCredential;
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth Error during sign-in: ${e.code} - ${e.message}');
-      throw e;
+      rethrow;
     } catch (e) {
       debugPrint('General Error during sign-in: $e');
       throw Exception('An unexpected error occurred during sign-in.');
@@ -59,7 +59,7 @@ class AuthService {
       return userCredential;
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth Error during sign-up: ${e.code} - ${e.message}');
-      throw e;
+      rethrow;
     } catch (e) {
       debugPrint('General Error during sign-up: $e');
       throw Exception('An unexpected error occurred during sign-up.');
@@ -92,7 +92,7 @@ class AuthService {
       return userCredential;
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase Auth Error during Google sign-in: ${e.code} - ${e.message}');
-      throw e;
+      rethrow;
     } catch (e) {
       debugPrint('General Error during Google sign-in: $e');
       throw Exception('An unexpected error occurred during Google Sign-in.');

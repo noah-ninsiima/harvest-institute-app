@@ -32,6 +32,7 @@ dependencies:
   
   # UI & Features
   mobile_scanner: ^5.2.3
+  flutterwave_standard: ^1.0.6
   google_sign_in: ^6.3.0
   
   # Icons
