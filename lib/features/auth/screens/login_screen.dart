@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/auth_controller.dart';
-import '../widgets/role_check_wrapper.dart';
 import '../../dashboard/screens/student_dashboard_screen.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   final String? message;
@@ -34,15 +32,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _navigateToRoleCheckWrapper() {
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
-        (Route<dynamic> route) => false,
-      );
-    }
-  }
-
   Future<void> _handleSignIn() async {
     setState(() {
       _errorMessage = null;
@@ -58,30 +47,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Exceptions from the async call itself (if not caught in controller)
       setState(() {
         _errorMessage = e.toString();
-      });
-    }
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(authControllerProvider.notifier).signInWithGoogle();
-      
-      final state = ref.read(authControllerProvider);
-      if (state.hasError) {
-        setState(() {
-          _errorMessage = state.error.toString();
-        });
-      } else {
-        _navigateToRoleCheckWrapper();
-      }
-    } catch (e) {
-      debugPrint('General Google Sign-In Error: $e');
-      setState(() {
-        _errorMessage = 'An unexpected error occurred during Google Sign-In.';
       });
     }
   }
@@ -229,29 +194,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: textColor.withOpacity(0.2))),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text("OR", style: TextStyle(color: textColor.withOpacity(0.5))),
-                      ),
-                      Expanded(child: Divider(color: textColor.withOpacity(0.2))),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  OutlinedButton.icon(
-                    onPressed: isLoading ? null : _handleGoogleSignIn,
-                    icon: const FaIcon(FontAwesomeIcons.google, size: 20),
-                    label: const Text('Continue with Google'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: textColor,
-                      side: BorderSide(color: textColor.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
                 ],
               ),
             ],
