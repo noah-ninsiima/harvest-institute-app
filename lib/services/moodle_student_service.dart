@@ -155,6 +155,43 @@ class MoodleStudentService {
     }
   }
 
+  Future<double> getCourseCompletion(String token, int courseId, int userId) async {
+    try {
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'core_completion_get_course_completion_status',
+          'moodlewsrestformat': 'json',
+          'courseid': courseId,
+          'userid': userId,
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        // Parse: Response usually looks like { "completionstatus": { "progress": 45, ... } }
+        if (data is Map<String, dynamic> && data.containsKey('completionstatus')) {
+          final status = data['completionstatus'];
+          if (status is Map<String, dynamic> && status.containsKey('progress')) {
+             // Handle both Int and Double safely
+             if (status['progress'] is num) {
+               return (status['progress'] as num).toDouble();
+             }
+          }
+        }
+        // If course tracking is disabled, Moodle might return "warnings" or empty.
+        // Return 0.0 as a safe default.
+        return 0.0;
+      }
+      throw Exception('Failed to load progress');
+    } catch (e) {
+      debugPrint('Error fetching completion: $e');
+      return 0.0; // Fail gracefully to 0% so the UI doesn't crash
+    }
+  }
+
   Future<Map<String, dynamic>> getSubmissionStatus(
       String token, int assignId, int userId) async {
     try {

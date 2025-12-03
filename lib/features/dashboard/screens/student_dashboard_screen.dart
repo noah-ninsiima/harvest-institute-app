@@ -224,7 +224,29 @@ class _StudentDashboardScreenState
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        subtitle: Text(course.shortname),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(course.shortname),
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: (course.progress ?? 0.0) / 100,
+                                backgroundColor: Colors.grey[300],
+                                minHeight: 6,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Theme.of(context).primaryColor),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${(course.progress ?? 0.0).toStringAsFixed(0)}% Complete',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                         onTap: () {
                           Navigator.push(

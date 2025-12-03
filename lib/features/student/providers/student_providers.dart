@@ -17,11 +17,40 @@ final enrolledCoursesProvider = FutureProvider<List<MoodleCourseModel>>((ref) as
   if (token == null) throw Exception('Not authenticated');
 
   // We need userId. 
-  // Optimization: We should cache the user profile in a StateProvider to avoid refetching.
-  // But for now, re-fetching to be safe as per previous pattern.
   final userProfile = await authService.getUserProfile(token);
 
-  return studentService.getEnrolledCourses(token, userProfile.userid);
+  final courses = await studentService.getEnrolledCourses(token, userProfile.userid);
+
+  // Enhanced: Fetch accurate progress for each course separately if needed
+  // Note: core_enrol_get_users_courses often returns 'progress' but it might be null depending on Moodle settings.
+  // If we find progress is missing or we want to be sure, we can fetch it explicitly.
+  
+  // Let's try to populate progress if it's missing or just override it to be sure with the dedicated API.
+  // Since getCourseCompletion is lightweight, we can do it in parallel.
+  
+  final coursesWithProgress = await Future.wait(courses.map((course) async {
+    // If course.progress is already valid, we might skip, but user reported it missing/not working.
+    // So let's fetch it.
+    try {
+      final completion = await studentService.getCourseCompletion(token, course.id, userProfile.userid);
+      // Return new model with updated progress
+      return MoodleCourseModel(
+        id: course.id,
+        fullname: course.fullname,
+        shortname: course.shortname,
+        progress: completion, // Use fetched completion
+        category: course.category,
+        startDate: course.startDate,
+        endDate: course.endDate,
+        imageUrl: course.imageUrl,
+      );
+    } catch (e) {
+      // Fallback to existing data
+      return course;
+    }
+  }));
+
+  return coursesWithProgress;
 });
 
 // Family Provider for Assignments (param: courseId)
