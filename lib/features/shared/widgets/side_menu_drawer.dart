@@ -8,13 +8,13 @@ class SideMenuDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(currentUserProfileProvider);
+    final authState = ref.watch(authControllerProvider);
 
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          userAsync.when(
+          authState.when(
             data: (user) {
               if (user == null) {
                 return _buildGuestHeader();
@@ -32,7 +32,7 @@ class SideMenuDrawer extends ConsumerWidget {
                   ),
                 ),
                 accountEmail: Text(
-                  user.email.isNotEmpty ? user.email : user.username,
+                  user.username, // Displaying username as requested/implied by previous code
                   style: const TextStyle(color: Colors.white70),
                 ),
                 currentAccountPicture: CircleAvatar(
@@ -70,7 +70,6 @@ class SideMenuDrawer extends ConsumerWidget {
               );
             },
           ),
-          // Add more menu items here
         ],
       ),
     );

@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/moodle_student_service.dart';
 import '../../shared/models/moodle_course_model.dart';
-import '../../shared/models/moodle_student_models.dart';
+import '../../shared/models/moodle_student_models.dart' hide MoodleGradeModel;
+import '../../../models/moodle_grade_model.dart'; // Import new model
 import '../../auth/controllers/auth_controller.dart'; // For moodleAuthServiceProvider
 
 // Provider for MoodleStudentService
@@ -44,6 +45,12 @@ final courseGradesProvider = FutureProvider.family<List<MoodleGradeModel>, int>(
 
   final userProfile = await authService.getUserProfile(token);
 
-  return studentService.getGrades(token, courseId, userProfile.userid);
+  // getGrades now returns List<MoodleUserGrade>
+  final userGrades = await studentService.getGrades(token, courseId, userProfile.userid);
+  
+  if (userGrades.isNotEmpty) {
+    return userGrades.first.gradeItems;
+  }
+  return [];
 });
 

@@ -1,10 +1,10 @@
+import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../shared/models/user_model.dart';
-import '../controllers/auth_controller.dart'; // Import for userProvider
 
 final authRepositoryProvider = Provider((ref) => AuthRepository(ref));
 
@@ -13,9 +13,8 @@ class AuthRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  final Ref _ref;
 
-  AuthRepository(this._ref);
+  AuthRepository(Ref ref);
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
@@ -153,46 +152,10 @@ class AuthRepository {
       // 2. Clear Moodle tokens (and any other secure data)
       await _secureStorage.deleteAll();
 
-      // 3. Crucial: Invalidate Riverpod state
-      // This ensures the app detects the logout and redirects to LoginScreen
-      // We invalidate the provider that holds the user state
-      // Assuming 'userProvider' is the one in AuthController or similar
-      // Note: In the AuthController file we saw userProvider defined as StreamProvider.
-      // Invalidating it will force it to re-evaluate (which will see null user)
-      // But the StreamProvider depends on authStateChangesProvider.
-      // Since we signed out of Firebase, authStateChangesProvider will emit null.
-      // So userProvider will also update.
-      // But explicit invalidation is good practice as requested.
-
-      // Since we don't have direct access to the provider definitions here (they are in another file),
-      // we rely on the caller (AuthController) to invalidate, OR we use the container if passed.
-      // But the User request said: "Update AuthRepository.logout() ... ref.invalidate(userProvider)"
-      // The AuthRepository has a 'Ref' passed in constructor.
-
-      // We need to make sure we are importing the userProvider correctly or using a name that resolves.
-      // The userProvider is in AuthController file, which is imported.
-      // However, we have a circular dependency potential if we import auth_controller.dart here.
-      // But checking the imports: import '../controllers/auth_controller.dart'; is there.
-
-      // Wait, in the file I read, 'userProvider' was in `auth_controller.dart`.
-      // Let's check if `userProvider` is exported or available.
-
-      // If userProvider is not available here, we might need to skip this line or fix imports.
-      // Based on previous file read of `auth_controller.dart`, `userProvider` is defined there.
-      // Let's assume the import works.
-
-      // However, `userProvider` in `auth_controller.dart` was:
-      // final userProvider = StreamProvider<UserModel?>((ref) { ... });
-
-      // In the original code I read for AuthRepository, line 148 was:
-      // _ref.invalidate(userProvider);
-      // And line 7 was: import '../controllers/auth_controller.dart';
-      // So it should be fine.
-
-      _ref.invalidate(userProvider);
+      // State invalidation is now handled by AuthController to prevent circular dependencies
     } catch (e) {
       // Log error but ensure logout proceeds if possible
-      print('Error during logout: $e');
+      debugPrint('Error during logout: $e');
       rethrow;
     }
   }

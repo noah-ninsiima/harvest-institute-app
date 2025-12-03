@@ -10,7 +10,7 @@ import '../../../services/moodle_auth_service.dart';
 
 final moodleAuthServiceProvider = Provider((ref) => MoodleAuthService());
 
-final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<void>>((ref) {
+final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<MoodleUserModel?>>((ref) {
   return AuthController(
     ref.watch(authRepositoryProvider),
     ref.watch(moodleAuthServiceProvider),
@@ -27,23 +27,36 @@ final userProvider = StreamProvider<UserModel?>((ref) {
   return ref.watch(authRepositoryProvider).getUserStream(authState.uid);
 });
 
+// Deprecated: Use authControllerProvider instead for Moodle profile
 final currentUserProfileProvider = FutureProvider<MoodleUserModel?>((ref) async {
-  final authService = ref.watch(moodleAuthServiceProvider);
-  final token = await authService.getStoredToken();
-  
-  // Debug log
-  debugPrint('currentUserProfileProvider: fetching profile for token: $token');
-  
-  if (token == null) return null;
-  return authService.getUserProfile(token);
+  final authState = ref.watch(authControllerProvider);
+  return authState.value;
 });
 
-class AuthController extends StateNotifier<AsyncValue<void>> {
+class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
   final AuthRepository _authRepository;
   final MoodleAuthService _moodleAuthService;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  AuthController(this._authRepository, this._moodleAuthService) : super(const AsyncValue.data(null));
+  AuthController(this._authRepository, this._moodleAuthService) : super(const AsyncValue.data(null)) {
+    checkAuthStatus();
+  }
+
+  Future<void> checkAuthStatus() async {
+    state = const AsyncValue.loading();
+    try {
+      final token = await _moodleAuthService.getStoredToken();
+      if (token != null) {
+        final user = await _moodleAuthService.getUserProfile(token);
+        state = AsyncValue.data(user);
+      } else {
+        state = const AsyncValue.data(null);
+      }
+    } catch (e) {
+      debugPrint('Auth check failed: $e');
+      state = const AsyncValue.data(null);
+    }
+  }
 
   // Moodle Login & Firestore Sync
   Future<void> signInWithMoodle(String username, String password) async {
@@ -58,12 +71,14 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       final moodleUser = await _moodleAuthService.getUserProfile(token);
       debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
       
+      // CRITICAL: Update state immediately so UI can react
+      state = AsyncValue.data(moodleUser);
+      
       // 3. Silent Sync to Firestore
       await _syncMoodleUserToFirestore(moodleUser);
       debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
       
-      debugPrint('Moodle Sign In Successful. Setting state to AsyncData.');
-      state = const AsyncValue.data(null);
+      debugPrint('Moodle Sign In Successful.');
     } catch (e, st) {
       debugPrint('Moodle Sign In Failed: $e');
       state = AsyncValue.error(e, st);
@@ -107,10 +122,16 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> signInWithGoogle() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _authRepository.signInWithGoogle());
+    // Google sign in logic doesn't return Moodle user, so we might need to handle state differently
+    // or assume Google sign in is separate.
+    // For now, leaving as is, but catching errors.
+    try {
+        await _authRepository.signInWithGoogle();
+        // Google Sign In doesn't provide Moodle profile, so state remains null or previous
+    } catch (e, st) {
+        state = AsyncValue.error(e, st);
+    }
   }
-
-  // Removed register method as per instructions
 
   Future<void> updateProfile({
     required String uid,
@@ -118,32 +139,61 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     required String contact,
   }) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _authRepository.updateUserData(
-      uid: uid,
-      fullName: fullName,
-      contact: contact,
-    ));
+    try {
+      await _authRepository.updateUserData(
+        uid: uid,
+        fullName: fullName,
+        contact: contact,
+      );
+      // If we had the user object in state, we should update it here,
+      // but since this updates Firestore and not Moodle, we might not update the local Moodle state.
+      // Ideally we'd refetch or update local copy.
+      
+      // Restore previous state if possible or keep as is (re-fetch handled by checkAuthStatus if needed)
+      if (state.value != null) {
+          // Optimistic update? Or just restore.
+          state = AsyncValue.data(state.value);
+      } else {
+          state = const AsyncValue.data(null);
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 
   Future<void> signOut(WidgetRef ref, BuildContext context) async {
     state = const AsyncValue.loading();
     try {
-      await _moodleAuthService.logout(); // Clear Moodle token
-      await _authRepository.signOut(); // Sign out from Firebase/Google
+      // Best effort logout sequence
+      try {
+        await _moodleAuthService.logout(); // Clear Moodle token
+      } catch (e) {
+        debugPrint('Error clearing Moodle token: $e');
+      }
+
+      try {
+        await _authRepository.signOut(); // Sign out from Firebase/Google
+      } catch (e) {
+         debugPrint('Error signing out from Firebase: $e');
+      }
       
+      // Invalidate Riverpod state
       ref.invalidate(userProvider);
       ref.invalidate(authStateChangesProvider);
-      ref.invalidate(currentUserProfileProvider);
-      state = const AsyncValue.data(null);
+      // ref.invalidate(currentUserProfileProvider); // No longer needed as it depends on this controller
       
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('SignOut Error: $e');
+      state = AsyncValue.error(e, st);
+    } finally {
+      // Always navigate back to the login screen/RoleCheckWrapper
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
           (route) => false,
         );
       }
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
     }
   }
 }

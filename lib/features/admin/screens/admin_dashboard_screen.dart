@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../services/auth_service.dart';
+import '../../auth/controllers/auth_controller.dart';
 import '../../auth/widgets/role_check_wrapper.dart';
 import 'admin_reports_screen.dart';
 import 'create_course_screen.dart';
@@ -15,7 +15,6 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
-  final AuthService _authService = AuthService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -44,13 +43,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await _authService.signOut();
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
-                  (Route<dynamic> route) => false,
-                );
-              }
+              await ref.read(authControllerProvider.notifier).signOut(ref, context);
             },
           ),
         ],

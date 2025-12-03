@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../features/shared/models/moodle_course_model.dart';
 import '../features/shared/models/moodle_student_models.dart';
+import '../models/moodle_grade_model.dart'; // Add import for MoodleGradeModel and MoodleUserGrade
 
 class MoodleStudentService {
   final Dio _dio;
@@ -99,7 +100,7 @@ class MoodleStudentService {
     }
   }
 
-  Future<List<MoodleGradeModel>> getGrades(
+  Future<List<MoodleUserGrade>> getGrades(
       String token, int courseId, int userId) async {
     try {
       final response = await _dio.post(
@@ -116,21 +117,41 @@ class MoodleStudentService {
 
       final data = _handleResponse(response);
 
-      // gradereport_user_get_grade_items returns { usergrades: [ { gradeitems: [...] } ] }
       if (data is Map<String, dynamic> && data.containsKey('usergrades')) {
         final userGrades = data['usergrades'] as List;
-        if (userGrades.isNotEmpty) {
-          final gradeItems = userGrades[0]['gradeitems'] as List;
-          return gradeItems
-              .map((json) =>
-                  MoodleGradeModel.fromJson(json as Map<String, dynamic>))
-              .toList();
-        }
+        return userGrades
+            .map((json) =>
+                MoodleUserGrade.fromJson(json as Map<String, dynamic>))
+            .toList();
       }
       return [];
     } catch (e) {
       debugPrint('Error fetching grades: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getCourseCompletionStatus(
+      String token, int courseId, int userId) async {
+    try {
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'core_completion_get_course_completion_status',
+          'moodlewsrestformat': 'json',
+          'courseid': courseId,
+          'userid': userId,
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      // If no completion tracking is enabled, this might return a specific warning or empty structure
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error fetching course completion status: $e');
+      // Return empty map or null rather than crashing if completion isn't enabled for a course
+      return {};
     }
   }
 
@@ -159,16 +180,18 @@ class MoodleStudentService {
   Future<void> saveSubmission(
       String token, int assignId, String onlineText) async {
     try {
-      // Note: plugindata needs to be structured correctly for the specific plugin (onlinetext)
-      // This is a simplified example assuming standard 'onlinetext_editor' structure.
-      // Moodle API often requires nested array/object structures that are tricky with simple maps in Dio.
-      // We might need to use standard URL encoding or a specific structure.
-
-      // For 'onlinetext' plugin:
-      // plugindata[onlinetext_editor][text] = ...
-      // plugindata[onlinetext_editor][format] = 1
-      // plugindata[onlinetext_editor][itemid] = ... (usually handled by moodle if new)
-
+      debugPrint('Saving submission for assignment $assignId: $onlineText');
+      
+      // Real implementation for Moodle 'mod_assign_save_submission'
+      // This function creates/updates a DRAFT submission.
+      // To finalize, you usually need 'mod_assign_submit_for_grading' (if enabled), 
+      // but often 'save_submission' with plugindata is enough for "Submitted for grading" depending on settings.
+      
+      // For onlinetext plugin:
+      // plugindata[onlinetext_editor][text]
+      // plugindata[onlinetext_editor][format] = 1 (HTML)
+      // plugindata[onlinetext_editor][itemid] is technically required but Moodle often generates one if 0.
+      
       final response = await _dio.post(
         '/webservice/rest/server.php',
         data: {
@@ -177,19 +200,55 @@ class MoodleStudentService {
           'moodlewsrestformat': 'json',
           'assignmentid': assignId,
           'plugindata[onlinetext_editor][text]': onlineText,
-          'plugindata[onlinetext_editor][format]': 1, // HTML format
-          // 'plugindata[files_filemanager]': 0, // If we handled files
+          'plugindata[onlinetext_editor][format]': 1, 
+          'plugindata[onlinetext_editor][itemid]': 0, // Start new draft
         },
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
+      
+      final data = _handleResponse(response);
+      debugPrint('Save submission response: $data');
+      
+      // Check for specific warnings (like 'Draft saved')
+      if (data is List && data.isNotEmpty) {
+          // Sometimes returns list of warnings
+           debugPrint('Submission warnings: $data');
+      }
+      
+      // OPTIONAL: If Moodle requires a separate "Submit for grading" step (locking the submission),
+      // we would call 'mod_assign_submit_for_grading' here.
+      // For now, we assume 'save_submission' puts it in the Draft or Submitted state depending on assignment settings.
+      // Many simple assignments don't require the separate locking step.
+      
+      // If the user gets "Draft" status in UI but wants "Submitted", we might need the extra call.
+      // Let's attempt to Submit For Grading as well to be sure, if the assignment allows it.
+      
+      try {
+         await _submitForGrading(token, assignId);
+      } catch (e) {
+        // This might fail if the assignment doesn't require/allow explicit submission (e.g. just saving is enough)
+        // or if there is no submission statement to accept.
+        debugPrint('Submit for grading skipped or failed (might be optional): $e');
+      }
 
-      _handleResponse(response);
-
-      // Optionally call mod_assign_submit_for_grading if required by the assignment configuration
-      // But often save_submission is enough for draft or direct submission depending on settings.
     } catch (e) {
       debugPrint('Error saving submission: $e');
       rethrow;
     }
+  }
+  
+  Future<void> _submitForGrading(String token, int assignId) async {
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'mod_assign_submit_for_grading',
+          'moodlewsrestformat': 'json',
+          'assignmentid': assignId,
+          'acceptsubmissionstatement': 1, // Often required
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+      _handleResponse(response);
   }
 }

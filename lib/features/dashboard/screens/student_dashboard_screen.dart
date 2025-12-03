@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Needed for direct role check
 import 'package:firebase_auth/firebase_auth.dart'; // Needed for current user
-import '../../auth/repositories/auth_repository.dart'; // Import AuthRepository
 import '../../auth/widgets/role_check_wrapper.dart';
 import '../../student/screens/course_detail_screen.dart';
 import '../../shared/widgets/side_menu_drawer.dart';
@@ -89,16 +88,8 @@ class _StudentDashboardScreenState
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              // Use AuthRepository which handles Moodle logout, Firebase logout, and state invalidation
-              await ref.read(authRepositoryProvider).signOut();
-
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (context) => const RoleCheckWrapper()),
-                  (Route<dynamic> route) => false,
-                );
-              }
+              // Use AuthController which handles Moodle logout, Firebase logout, state invalidation, and navigation
+              await ref.read(authControllerProvider.notifier).signOut(ref, context);
             },
           ),
         ],

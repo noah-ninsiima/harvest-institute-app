@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/moodle_student_models.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../student/providers/student_providers.dart';
+import '../../auth/widgets/role_check_wrapper.dart';
 
 class AssignmentSubmissionScreen extends ConsumerStatefulWidget {
   final MoodleAssignmentModel assignment;
@@ -36,7 +37,22 @@ class _AssignmentSubmissionScreenState extends ConsumerState<AssignmentSubmissio
       final studentService = ref.read(moodleStudentServiceProvider);
 
       final token = await authService.getStoredToken();
-      if (token == null) throw Exception('Authentication token not found');
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Session expired. Please log in again.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          // Redirect to login to refresh session
+           Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
+            (route) => false,
+          );
+        }
+        return;
+      }
 
       await studentService.saveSubmission(
         token,
