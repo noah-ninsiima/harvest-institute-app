@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../features/shared/models/moodle_course_model.dart';
-import '../../../services/moodle_instructor_service.dart';
-import '../../../services/moodle_student_service.dart'; // Reuse for getAssignments
-import '../../../features/auth/controllers/auth_controller.dart'; // For token
+import '../../shared/models/moodle_course_model.dart';
+import '../providers/instructor_providers.dart';
+import '../../auth/controllers/auth_controller.dart';
+import 'submission_list_screen.dart';
 
 class InstructorCourseDetailScreen extends ConsumerStatefulWidget {
   final MoodleCourseModel course;
@@ -16,39 +16,20 @@ class InstructorCourseDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _InstructorCourseDetailScreenState
-    extends ConsumerState<InstructorCourseDetailScreen> {
-  late MoodleInstructorService _instructorService;
-  late MoodleStudentService _studentService;
-
-  Future<int>? _participantsCountFuture;
-  Future<List<dynamic>>?
-      _assignmentsFuture; // Using dynamic or MoodleAssignmentModel
+    extends ConsumerState<InstructorCourseDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _instructorService = MoodleInstructorService();
-    _studentService = MoodleStudentService();
-
-    // Trigger fetches
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  void _loadData() async {
-    final token = await ref.read(moodleAuthServiceProvider).getStoredToken();
-    if (token != null) {
-      setState(() {
-        _participantsCountFuture = _instructorService
-            .getCourseParticipants(token, widget.course.id)
-            .then((list) => list.length);
-
-        // Reusing student service to get assignments list
-        _assignmentsFuture =
-            _studentService.getAssignments(token, widget.course.id);
-      });
-    }
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -56,93 +37,140 @@ class _InstructorCourseDetailScreenState
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.course.fullname),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Text(
-              widget.course.fullname,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 24),
-
-            // Stat Card: Enrolled Students
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    const Text('Enrolled Students',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    FutureBuilder<int>(
-                      future: _participantsCountFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        } else if (snapshot.hasError) {
-                          return const Text('Error');
-                        }
-                        return Text(
-                          '${snapshot.data ?? 0} Students',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Assignment List
-            Text('Assignments', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            FutureBuilder<List<dynamic>>(
-              future: _assignmentsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Text('Error loading assignments: ${snapshot.error}');
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Text('No assignments found.');
-                }
-
-                final assignments = snapshot.data!;
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: assignments.length,
-                  itemBuilder: (context, index) {
-                    final assignment = assignments[index];
-                    // Assuming MoodleAssignmentModel or similar structure from student service
-                    return Card(
-                      child: ListTile(
-                        title: Text(assignment.name),
-                        subtitle: Text(
-                            'Due: ${DateTime.fromMillisecondsSinceEpoch(assignment.dueDate * 1000).toString().split(' ')[0]}'),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () {
-                          // Navigate to SubmissionListScreen (Placeholder)
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Navigate to Submissions')),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Students Enrolled', icon: Icon(Icons.people)),
+            Tab(text: 'Assignments Submitted', icon: Icon(Icons.assignment)),
           ],
         ),
       ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _StudentsTab(courseId: widget.course.id),
+          _AssignmentsTab(courseId: widget.course.id),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudentsTab extends ConsumerWidget {
+  final int courseId;
+
+  const _StudentsTab({required this.courseId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enrolledStudentsAsync = ref.watch(courseEnrolledUsersProvider(courseId));
+
+    return enrolledStudentsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Failed to load students: $err'),
+          ],
+        ),
+      ),
+      data: (students) {
+        if (students.isEmpty) {
+          return const Center(child: Text('No students enrolled.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: students.length,
+          itemBuilder: (context, index) {
+            final student = students[index];
+            // Moodle often returns various fields, try to extract meaningful ones
+            final fullName = student['fullname'] ?? '${student['firstname']} ${student['lastname']}' ?? 'Unknown';
+            final email = student['email'] ?? 'No Email';
+            final profileUrl = student['profileimageurl'] ?? student['profileimageurlsmall'];
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
+                  backgroundColor: Colors.teal.withOpacity(0.2),
+                  child: profileUrl == null ? Text(fullName[0].toUpperCase()) : null,
+                ),
+                title: Text(fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(email),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AssignmentsTab extends ConsumerWidget {
+  final int courseId;
+
+  const _AssignmentsTab({required this.courseId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final assignmentsAsync = ref.watch(courseAssignmentsProvider(courseId));
+
+    return assignmentsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error: $err')),
+      data: (assignments) {
+        if (assignments.isEmpty) {
+          return const Center(child: Text('No assignments found for this course.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: assignments.length,
+          itemBuilder: (context, index) {
+            final assignment = assignments[index];
+            final name = assignment['name'] ?? 'Untitled Assignment';
+            final dueDateVal = assignment['duedate'];
+            String dueDate = 'No Due Date';
+            if (dueDateVal != null && dueDateVal is int && dueDateVal > 0) {
+               dueDate = DateTime.fromMillisecondsSinceEpoch(dueDateVal * 1000).toString().split(' ')[0];
+            }
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.assignment_outlined, color: Colors.orange),
+                ),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Due: $dueDate'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                   // Navigate to Submissions List for this Assignment
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(
+                       builder: (context) => SubmissionListScreen(
+                         assignmentId: assignment['id'].toString(), // Use string for now as per existing screen
+                         assignmentName: name,
+                       ),
+                     ),
+                   );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

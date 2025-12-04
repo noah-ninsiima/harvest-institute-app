@@ -78,7 +78,7 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
   Future<void> signIn(String input, String password) async {
     debugPrint('Starting Unified Sign In for: $input');
     state = const AsyncValue.loading();
-    
+
     // 1. Try Moodle Login (as provided)
     try {
       await _performMoodleLogin(input, password);
@@ -105,32 +105,33 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
       await _authRepository.signInWithEmailAndPassword(input, password);
       // Firebase auth state change will trigger UI update via streams
       // We can clear the local loading state
-      state = const AsyncValue.data(null); 
+      state = const AsyncValue.data(null);
       debugPrint('Firebase Sign In Successful.');
       return;
     } catch (e) {
       debugPrint('Firebase Sign In Failed: $e');
       // If all fail, report the last meaningful error or a generic one
       // We'll report the generic failure since we tried multiple things
-      state = AsyncValue.error('Login failed. Please check your credentials.', StackTrace.current);
+      state = AsyncValue.error(
+          'Login failed. Please check your credentials.', StackTrace.current);
     }
   }
 
   Future<void> _performMoodleLogin(String username, String password) async {
-      // 1. Moodle Login
-      final token = await _moodleAuthService.login(username, password);
-      debugPrint('Moodle Token acquired.');
+    // 1. Moodle Login
+    final token = await _moodleAuthService.login(username, password);
+    debugPrint('Moodle Token acquired.');
 
-      // 2. Get User Profile from Moodle
-      final moodleUser = await _moodleAuthService.getUserProfile(token);
-      debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
+    // 2. Get User Profile from Moodle
+    final moodleUser = await _moodleAuthService.getUserProfile(token);
+    debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
 
-      // CRITICAL: Update state immediately so UI can react
-      state = AsyncValue.data(moodleUser);
+    // CRITICAL: Update state immediately so UI can react
+    state = AsyncValue.data(moodleUser);
 
-      // 3. Silent Sync to Firestore
-      await _syncMoodleUserToFirestore(moodleUser);
-      debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
+    // 3. Silent Sync to Firestore
+    await _syncMoodleUserToFirestore(moodleUser);
+    debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
   }
 
   Future<void> _syncMoodleUserToFirestore(MoodleUserModel moodleUser) async {
@@ -147,7 +148,7 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
 
     // Determine Role: Temporary check for specific instructor until dynamic role API is available
     UserRole userRole = UserRole.student;
-    if (moodleUser.username.toLowerCase() == 'kizirijesse' || 
+    if (moodleUser.username.toLowerCase() == 'kizirijesse' ||
         moodleUser.username.toLowerCase().contains('kiziri')) {
       userRole = UserRole.instructor;
     }
@@ -159,26 +160,27 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         email: userEmail,
         fullName: moodleUser.fullName,
         username: moodleUser.username,
-        role: userRole, 
+        role: userRole,
         contact: '', // Not available from initial Moodle profile
         createdAt: DateTime.now(),
       );
 
       await userDocRef.set(newUser.toMap());
-      debugPrint('Created new Firestore user for Moodle user: $moodleUid with role $userRole');
+      debugPrint(
+          'Created new Firestore user for Moodle user: $moodleUid with role $userRole');
     } else {
       debugPrint('Firestore user already exists for Moodle user: $moodleUid');
       // Check if role needs update for existing users who should be instructors
       // Using loose check on username for Kiziri Jesse
-      if (moodleUser.username.toLowerCase() == 'kizirijesse' || 
+      if (moodleUser.username.toLowerCase() == 'kizirijesse' ||
           moodleUser.username.toLowerCase().contains('kiziri')) {
-         final existingRole = docSnapshot.data()?['role'];
-         if (existingRole != 'instructor' && existingRole != 'teacher') {
-            await userDocRef.update({'role': 'instructor'});
-            debugPrint('Updated role to instructor for existing user $moodleUid');
-         }
+        final existingRole = docSnapshot.data()?['role'];
+        if (existingRole != 'instructor' && existingRole != 'teacher') {
+          await userDocRef.update({'role': 'instructor'});
+          debugPrint('Updated role to instructor for existing user $moodleUid');
+        }
       }
-      
+
       // Optional: Update existing data if needed (e.g. name change in Moodle)
       await userDocRef.update({
         'fullName': moodleUser.fullName,

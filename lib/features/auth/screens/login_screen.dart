@@ -103,10 +103,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 margin: const EdgeInsets.only(bottom: 48.0),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.school_rounded,
-                      size: 80,
-                      color: accentColor,
+                    Image.asset(
+                      'assets/images/harvest_institute_logo.png',
+                      height: 120,
                     ),
                     const SizedBox(height: 16),
                     Text(

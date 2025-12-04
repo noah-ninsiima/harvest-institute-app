@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../instructor/providers/instructor_providers.dart';
 import '../../shared/widgets/side_menu_drawer.dart';
 import '../../shared/models/moodle_course_model.dart';
-import '../../instructor/providers/instructor_providers.dart';
+import '../../instructor/screens/instructor_course_detail_screen.dart';
 
 class TeacherDashboard extends ConsumerStatefulWidget {
   const TeacherDashboard({super.key});
@@ -171,7 +172,13 @@ class _InstructorCourseCardState extends ConsumerState<InstructorCourseCard> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          // Navigate to detailed view (To be implemented later)
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  InstructorCourseDetailScreen(course: widget.course),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
