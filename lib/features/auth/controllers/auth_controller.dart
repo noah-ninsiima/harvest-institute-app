@@ -113,6 +113,13 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         ? moodleUser.email
         : '${moodleUser.username}@moodle.placeholder';
 
+    // Determine Role: Temporary check for specific instructor until dynamic role API is available
+    UserRole userRole = UserRole.student;
+    if (moodleUser.username.toLowerCase() == 'kizirijesse' || 
+        moodleUser.username.toLowerCase().contains('kiziri')) {
+      userRole = UserRole.instructor;
+    }
+
     if (!docSnapshot.exists) {
       // Create new user document
       final newUser = UserModel(
@@ -120,15 +127,26 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         email: userEmail,
         fullName: moodleUser.fullName,
         username: moodleUser.username,
-        role: UserRole.student, // Default role
+        role: userRole, 
         contact: '', // Not available from initial Moodle profile
         createdAt: DateTime.now(),
       );
 
       await userDocRef.set(newUser.toMap());
-      debugPrint('Created new Firestore user for Moodle user: $moodleUid');
+      debugPrint('Created new Firestore user for Moodle user: $moodleUid with role $userRole');
     } else {
       debugPrint('Firestore user already exists for Moodle user: $moodleUid');
+      // Check if role needs update for existing users who should be instructors
+      // Using loose check on username for Kiziri Jesse
+      if (moodleUser.username.toLowerCase() == 'kizirijesse' || 
+          moodleUser.username.toLowerCase().contains('kiziri')) {
+         final existingRole = docSnapshot.data()?['role'];
+         if (existingRole != 'instructor' && existingRole != 'teacher') {
+            await userDocRef.update({'role': 'instructor'});
+            debugPrint('Updated role to instructor for existing user $moodleUid');
+         }
+      }
+      
       // Optional: Update existing data if needed (e.g. name change in Moodle)
       await userDocRef.update({
         'fullName': moodleUser.fullName,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/auth_controller.dart';
-import '../../dashboard/screens/student_dashboard_screen.dart';
+import '../widgets/role_check_wrapper.dart'; // Import RoleCheckWrapper
 
 class LoginScreen extends ConsumerStatefulWidget {
   final String? message;
@@ -13,8 +13,9 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: "ninsiima30@gmail.com");
-  final TextEditingController _passwordController = TextEditingController(text: "N@t528b0n668");
+  // Cleared default credentials
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   String? _errorMessage;
   
   @override
@@ -58,8 +59,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       next.when(
         data: (_) {
           debugPrint("Login Successful, Navigating...");
+          // Replaced direct StudentDashboard navigation with RoleCheckWrapper to handle roles
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const StudentDashboardScreen()),
+            MaterialPageRoute(builder: (_) => const RoleCheckWrapper()),
           );
         },
         error: (error, stack) {
