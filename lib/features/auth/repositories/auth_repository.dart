@@ -11,7 +11,8 @@ final authRepositoryProvider = Provider((ref) => AuthRepository(ref));
 class AuthRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // Lazy init to prevent web crash if client ID is missing
+  GoogleSignIn get _googleSignIn => GoogleSignIn();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   AuthRepository(Ref ref);

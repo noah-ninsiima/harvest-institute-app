@@ -12,7 +12,7 @@ class SeedService {
       const String studentUserId = 'user_student_1';
       const String instructorUserId = 'user_instructor_1';
       const String courseId = 'course_flutter_101';
-      final String enrollmentId = '${studentUserId}_${courseId}'; // Composite ID
+      const String enrollmentId = '${studentUserId}_$courseId'; // Composite ID
 
       // 1. Users Collection
       await _firestore.collection('users').doc(studentUserId).set({
