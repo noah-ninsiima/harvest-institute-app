@@ -17,7 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? _errorMessage;
-  
+
   @override
   void initState() {
     super.initState();
@@ -39,10 +39,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(authControllerProvider.notifier).signInWithMoodle(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      await ref.read(authControllerProvider.notifier).signIn(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
       // State changes are handled by ref.listen in build()
     } catch (e) {
       // Exceptions from the async call itself (if not caught in controller)
@@ -67,7 +67,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         error: (error, stack) {
           debugPrint("Login Failed: $error");
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(error.toString()), backgroundColor: Colors.red),
           );
           setState(() {
             _errorMessage = error.toString();
@@ -125,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
               ),
-              
+
               Text(
                 'Welcome Back',
                 style: theme.textTheme.headlineMedium,
@@ -133,7 +134,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 8),
               Text(
                 "Raising skilled laborers for the End-Time Harvest",
-                style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontStyle: FontStyle.italic),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32.0),
@@ -159,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 style: TextStyle(color: textColor),
               ),
               const SizedBox(height: 24.0),
-              
+
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
@@ -177,7 +179,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-              
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -194,7 +196,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Sign In'),
                   ),
-                  
                   const SizedBox(height: 24),
                 ],
               ),
