@@ -10,7 +10,8 @@ import '../../../services/moodle_auth_service.dart';
 
 final moodleAuthServiceProvider = Provider((ref) => MoodleAuthService());
 
-final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<MoodleUserModel?>>((ref) {
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AsyncValue<MoodleUserModel?>>((ref) {
   return AuthController(
     ref.watch(authRepositoryProvider),
     ref.watch(moodleAuthServiceProvider),
@@ -22,13 +23,27 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
 });
 
 final userProvider = StreamProvider<UserModel?>((ref) {
+  // 1. Try Firebase Auth (Preferred)
   final authState = ref.watch(authStateChangesProvider).value;
-  if (authState == null) return Stream.value(null);
-  return ref.watch(authRepositoryProvider).getUserStream(authState.uid);
+  if (authState != null) {
+    return ref.watch(authRepositoryProvider).getUserStream(authState.uid);
+  }
+
+  // 2. Try Moodle Auth (Fallback for Moodle-only login)
+  final moodleState = ref.watch(authControllerProvider).value;
+  if (moodleState != null) {
+    // Construct the expected Firestore ID for Moodle users
+    final moodleUid = 'moodle_${moodleState.userid}';
+    return ref.watch(authRepositoryProvider).getUserStream(moodleUid);
+  }
+
+  // 3. Not authenticated
+  return Stream.value(null);
 });
 
 // Deprecated: Use authControllerProvider instead for Moodle profile
-final currentUserProfileProvider = FutureProvider<MoodleUserModel?>((ref) async {
+final currentUserProfileProvider =
+    FutureProvider<MoodleUserModel?>((ref) async {
   final authState = ref.watch(authControllerProvider);
   return authState.value;
 });
@@ -38,7 +53,8 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
   final MoodleAuthService _moodleAuthService;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  AuthController(this._authRepository, this._moodleAuthService) : super(const AsyncValue.data(null)) {
+  AuthController(this._authRepository, this._moodleAuthService)
+      : super(const AsyncValue.data(null)) {
     checkAuthStatus();
   }
 
@@ -70,14 +86,14 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
       // 2. Get User Profile from Moodle
       final moodleUser = await _moodleAuthService.getUserProfile(token);
       debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
-      
+
       // CRITICAL: Update state immediately so UI can react
       state = AsyncValue.data(moodleUser);
-      
+
       // 3. Silent Sync to Firestore
       await _syncMoodleUserToFirestore(moodleUser);
       debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
-      
+
       debugPrint('Moodle Sign In Successful.');
     } catch (e, st) {
       debugPrint('Moodle Sign In Failed: $e');
@@ -88,13 +104,13 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
   Future<void> _syncMoodleUserToFirestore(MoodleUserModel moodleUser) async {
     final moodleUid = 'moodle_${moodleUser.userid}';
     final userDocRef = _firestore.collection('users').doc(moodleUid);
-    
+
     final docSnapshot = await userDocRef.get();
-    
+
     // Use username as fallback email if email is empty (Moodle often hides email)
     // We append a placeholder domain if it's just a username to satisfy UserModel email requirement if strict
-    final userEmail = moodleUser.email.isNotEmpty 
-        ? moodleUser.email 
+    final userEmail = moodleUser.email.isNotEmpty
+        ? moodleUser.email
         : '${moodleUser.username}@moodle.placeholder';
 
     if (!docSnapshot.exists) {
@@ -103,17 +119,18 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         uid: moodleUid,
         email: userEmail,
         fullName: moodleUser.fullName,
+        username: moodleUser.username,
         role: UserRole.student, // Default role
         contact: '', // Not available from initial Moodle profile
         createdAt: DateTime.now(),
       );
-      
+
       await userDocRef.set(newUser.toMap());
       debugPrint('Created new Firestore user for Moodle user: $moodleUid');
     } else {
       debugPrint('Firestore user already exists for Moodle user: $moodleUid');
       // Optional: Update existing data if needed (e.g. name change in Moodle)
-       await userDocRef.update({
+      await userDocRef.update({
         'fullName': moodleUser.fullName,
         'email': userEmail,
       });
@@ -126,10 +143,10 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
     // or assume Google sign in is separate.
     // For now, leaving as is, but catching errors.
     try {
-        await _authRepository.signInWithGoogle();
-        // Google Sign In doesn't provide Moodle profile, so state remains null or previous
+      await _authRepository.signInWithGoogle();
+      // Google Sign In doesn't provide Moodle profile, so state remains null or previous
     } catch (e, st) {
-        state = AsyncValue.error(e, st);
+      state = AsyncValue.error(e, st);
     }
   }
 
@@ -148,13 +165,13 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
       // If we had the user object in state, we should update it here,
       // but since this updates Firestore and not Moodle, we might not update the local Moodle state.
       // Ideally we'd refetch or update local copy.
-      
+
       // Restore previous state if possible or keep as is (re-fetch handled by checkAuthStatus if needed)
       if (state.value != null) {
-          // Optimistic update? Or just restore.
-          state = AsyncValue.data(state.value);
+        // Optimistic update? Or just restore.
+        state = AsyncValue.data(state.value);
       } else {
-          state = const AsyncValue.data(null);
+        state = const AsyncValue.data(null);
       }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -174,14 +191,14 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
       try {
         await _authRepository.signOut(); // Sign out from Firebase/Google
       } catch (e) {
-         debugPrint('Error signing out from Firebase: $e');
+        debugPrint('Error signing out from Firebase: $e');
       }
-      
+
       // Invalidate Riverpod state
       ref.invalidate(userProvider);
       ref.invalidate(authStateChangesProvider);
       // ref.invalidate(currentUserProfileProvider); // No longer needed as it depends on this controller
-      
+
       state = const AsyncValue.data(null);
     } catch (e, st) {
       debugPrint('SignOut Error: $e');

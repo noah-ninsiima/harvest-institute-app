@@ -56,6 +56,7 @@ class AuthRepository {
             uid: user.uid,
             email: user.email!,
             fullName: user.displayName ?? 'No Name',
+            username: user.email!.split('@')[0], // Default username
             role: UserRole.student,
             contact: '',
             createdAt: DateTime.now(),
@@ -91,6 +92,7 @@ class AuthRepository {
           uid: user.uid,
           email: email,
           fullName: fullName,
+          username: email.split('@')[0], // Default username
           role: role,
           contact: contact,
           createdAt: DateTime.now(),
