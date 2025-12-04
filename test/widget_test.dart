@@ -21,8 +21,8 @@ class MockAuthRepository extends Mock implements AuthRepository {
   Future<UserModel?> getUserData(String uid) async {
     if (_user == null) return null;
     return UserModel(
-      uid: _user!.uid,
-      email: _user!.email!,
+      uid: _user.uid,
+      email: _user.email!,
       fullName: 'Test User',
       role: UserRole.student,
       contact: '1234567890',

@@ -8,6 +8,7 @@ import '../../shared/widgets/side_menu_drawer.dart';
 import '../../student/providers/student_providers.dart';
 import '../../auth/controllers/auth_controller.dart'; // For currentUserProfileProvider
 import '../../student/screens/attendance_scan_screen.dart';
+import '../../payment/screens/payment_history_screen.dart';
 
 // Make StudentDashboardScreen a ConsumerStatefulWidget to use Ref
 class StudentDashboardScreen extends ConsumerStatefulWidget {
@@ -137,9 +138,11 @@ class _StudentDashboardScreenState
                     icon: Icons.payment,
                     label: 'Pay Tuition',
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Payment module coming soon!')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PaymentHistoryScreen(),
+                        ),
                       );
                     },
                   ),
