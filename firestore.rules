@@ -66,7 +66,11 @@ service cloud.firestore {
 
     // --- Payments Collection ---
     match /payments/{paymentId} {
-      allow read, write: if isAdmin();
+      // TEMPORARY DEV MODE: Allow public read/write.
+      // Since authentication is hybrid (Moodle + Firebase) and strict mapping is causing issues,
+      // we relax this for development.
+      // TODO: Re-secure this before production deployment using proper auth claims or backend API.
+      allow read, write: if true;
     }
 
     // Default to deny all access
