@@ -230,7 +230,9 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
     }
   }
 
-  Future<void> signOut(WidgetRef ref, BuildContext context) async {
+  // Simplified logout that only clears data and updates state.
+  // Navigation should be handled by the UI (Consumer).
+  Future<void> logout() async {
     state = const AsyncValue.loading();
     try {
       // Best effort logout sequence
@@ -246,23 +248,25 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         debugPrint('Error signing out from Firebase: $e');
       }
 
-      // Invalidate Riverpod state
-      ref.invalidate(userProvider);
-      ref.invalidate(authStateChangesProvider);
-      // ref.invalidate(currentUserProfileProvider); // No longer needed as it depends on this controller
-
+      // Explicitly set state to null (User is logged out)
       state = const AsyncValue.data(null);
+
+      // Note: We DO NOT navigate here. The UI calling this method is responsible for navigation.
+      // This prevents "Bad state: Cannot use ref after dispose" errors if the UI widget is unmounted during the async gap.
     } catch (e, st) {
-      debugPrint('SignOut Error: $e');
+      debugPrint('Logout Error: $e');
       state = AsyncValue.error(e, st);
-    } finally {
-      // Always navigate back to the login screen/RoleCheckWrapper
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
-          (route) => false,
-        );
-      }
+    }
+  }
+
+  // Deprecated: Use logout() instead. Kept for compatibility if needed, but should be replaced.
+  Future<void> signOut(WidgetRef ref, BuildContext context) async {
+    await logout();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const RoleCheckWrapper()),
+        (route) => false,
+      );
     }
   }
 }

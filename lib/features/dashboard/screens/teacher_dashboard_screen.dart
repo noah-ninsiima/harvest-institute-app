@@ -35,12 +35,18 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref
-                  .read(authControllerProvider.notifier)
-                  .signOut(ref, context);
+          Consumer(
+            builder: (context, ref, child) {
+              return IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  if (mounted) {
+                    await ref
+                        .read(authControllerProvider.notifier)
+                        .signOut(ref, context);
+                  }
+                },
+              );
             },
           ),
         ],

@@ -102,7 +102,12 @@ class _RoleResolverState extends State<RoleResolver> {
   @override
   Widget build(BuildContext context) {
     return _buildDashboardLoader(_roleFuture, () async {
-      await widget.authService.signOut();
+      // Use a Consumer to safely get ref in callback if needed, 
+      // or just call service directly as this is stateless logic mostly
+      // But here we are in a stateful widget so accessing 'widget' is safe if mounted.
+      if (mounted) {
+         await widget.authService.signOut();
+      }
     });
   }
 

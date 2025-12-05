@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../auth/screens/profile_screen.dart';
+import '../../auth/widgets/role_check_wrapper.dart';
 
 class SideMenuDrawer extends ConsumerWidget {
   const SideMenuDrawer({super.key});
@@ -68,6 +69,28 @@ class SideMenuDrawer extends ConsumerWidget {
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              // 1. Close the Drawer immediately (prevents visual glitches)
+              Navigator.of(context).pop();
+
+              // 2. Trigger the logic
+              await ref.read(authControllerProvider.notifier).logout();
+
+              // 3. Navigation (Check mounted to prevent crash)
+              if (context.mounted) {
+                // Navigate to RoleCheckWrapper (which redirects to Login if user is null)
+                // and remove all back stack history
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const RoleCheckWrapper()),
+                  (route) => false,
+                );
+              }
             },
           ),
         ],

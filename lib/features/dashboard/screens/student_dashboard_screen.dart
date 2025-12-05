@@ -86,11 +86,15 @@ class _StudentDashboardScreenState
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              // Use AuthController which handles Moodle logout, Firebase logout, state invalidation, and navigation
-              await ref.read(authControllerProvider.notifier).signOut(ref, context);
+          Consumer(
+            builder: (context, ref, child) {
+              return IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  // Use AuthController which handles Moodle logout, Firebase logout, state invalidation, and navigation
+                  await ref.read(authControllerProvider.notifier).signOut(ref, context);
+                },
+              );
             },
           ),
         ],

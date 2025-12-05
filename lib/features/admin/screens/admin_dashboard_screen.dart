@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/controllers/auth_controller.dart';
-import '../../auth/widgets/role_check_wrapper.dart';
 import 'admin_reports_screen.dart';
 import 'create_course_screen.dart';
 import '../providers/admin_stats_provider.dart';
@@ -40,10 +39,18 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ref.invalidate(adminStatsProvider);
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authControllerProvider.notifier).signOut(ref, context);
+          Consumer(
+            builder: (context, ref, child) {
+              return IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  if (mounted) {
+                    await ref
+                        .read(authControllerProvider.notifier)
+                        .signOut(ref, context);
+                  }
+                },
+              );
             },
           ),
         ],
