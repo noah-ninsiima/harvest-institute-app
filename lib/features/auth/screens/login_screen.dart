@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/auth_controller.dart';
-import '../../dashboard/screens/student_dashboard_screen.dart';
+import '../widgets/role_check_wrapper.dart'; // Import RoleCheckWrapper
 
 class LoginScreen extends ConsumerStatefulWidget {
   final String? message;
@@ -13,10 +13,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: "ninsiima30@gmail.com");
-  final TextEditingController _passwordController = TextEditingController(text: "N@t528b0n668");
+  // Cleared default credentials
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   String? _errorMessage;
-  
+
   @override
   void initState() {
     super.initState();
@@ -38,10 +39,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(authControllerProvider.notifier).signInWithMoodle(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      await ref.read(authControllerProvider.notifier).signIn(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
       // State changes are handled by ref.listen in build()
     } catch (e) {
       // Exceptions from the async call itself (if not caught in controller)
@@ -58,14 +59,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       next.when(
         data: (_) {
           debugPrint("Login Successful, Navigating...");
+          // Replaced direct StudentDashboard navigation with RoleCheckWrapper to handle roles
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const StudentDashboardScreen()),
+            MaterialPageRoute(builder: (_) => const RoleCheckWrapper()),
           );
         },
         error: (error, stack) {
           debugPrint("Login Failed: $error");
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.toString()), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(error.toString()), backgroundColor: Colors.red),
           );
           setState(() {
             _errorMessage = error.toString();
@@ -100,10 +103,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 margin: const EdgeInsets.only(bottom: 48.0),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.school_rounded,
-                      size: 80,
-                      color: accentColor,
+                    Image.asset(
+                      'assets/images/harvest_institute_logo.png',
+                      height: 120,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -123,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
               ),
-              
+
               Text(
                 'Welcome Back',
                 style: theme.textTheme.headlineMedium,
@@ -131,7 +133,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 8),
               Text(
                 "Raising skilled laborers for the End-Time Harvest",
-                style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontStyle: FontStyle.italic),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32.0),
@@ -157,7 +160,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 style: TextStyle(color: textColor),
               ),
               const SizedBox(height: 24.0),
-              
+
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
@@ -175,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-              
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -192,7 +195,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Sign In'),
                   ),
-                  
                   const SizedBox(height: 24),
                 ],
               ),

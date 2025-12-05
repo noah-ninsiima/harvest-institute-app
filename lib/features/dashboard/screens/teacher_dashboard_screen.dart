@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../auth/controllers/auth_controller.dart';
-import '../../auth/screens/profile_screen.dart';
-// import '../../auth/widgets/role_check_wrapper.dart'; // Removed unused import
-import '../../instructor/repositories/instructor_repository.dart';
-import '../../student/screens/qr_scanner_screen.dart';
-import '../../shared/models/course.dart';
+import '../../instructor/providers/instructor_providers.dart';
+import '../../shared/widgets/side_menu_drawer.dart';
+import '../../shared/models/moodle_course_model.dart';
+import '../../instructor/screens/instructor_course_detail_screen.dart';
 
 class TeacherDashboard extends ConsumerStatefulWidget {
   const TeacherDashboard({super.key});
@@ -17,217 +14,227 @@ class TeacherDashboard extends ConsumerStatefulWidget {
 }
 
 class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
-  final User? currentUser = FirebaseAuth.instance.currentUser;
-  int _pendingGradingCount = 0;
-  bool _isLoadingStats = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchDashboardStats();
-  }
-
-  Future<void> _fetchDashboardStats() async {
-    // In a real app, you'd probably fetch this from a summary API or aggregate locally
-    // For now, we'll simulate checking assignments for grading
-    if (currentUser == null) return;
-
-    try {
-      // 1. Get Courses for Instructor from Firestore
-      final coursesSnapshot = await FirebaseFirestore.instance
-          .collection('courses')
-          .where('instructorId', isEqualTo: currentUser!.uid)
-          .get();
-
-      if (coursesSnapshot.docs.isEmpty) {
-        if (mounted) setState(() => _isLoadingStats = false);
-        return;
-      }
-
-      // 2. For each course, fetch assignments and submissions (Moodle)
-      // This can be heavy, so in production consider a dedicated endpoint or caching
-      int totalPending = 0;
-      final instructorRepo = ref.read(instructorRepositoryProvider);
-
-      // Simplified logic: Just fetching for the first course to show example
-      // Iterating all courses might be too slow for initState
-      if (coursesSnapshot.docs.isNotEmpty) {
-         // Assume we store moodleCourseId in Firestore course doc
-         // If not, we might need another way to link
-         // For this demo, we'll skip the heavy API call to avoid blocking or errors if data isn't synced
-         // and just show a placeholder or mock calculation if needed.
-         
-         // However, let's try to fetch for at least one if possible
-         final firstCourseData = coursesSnapshot.docs.first.data();
-         if (firstCourseData.containsKey('moodleId')) {
-            final moodleCourseId = firstCourseData['moodleId'];
-            if (moodleCourseId != null) {
-              final assignments = await instructorRepo.getAssignments(moodleCourseId);
-              if (assignments.isNotEmpty) {
-                 final ids = assignments.map<int>((a) => a['id'] as int).toList();
-                 final submissions = await instructorRepo.getSubmissions(ids);
-                 // Count submissions that need grading (status = submitted, no grade)
-                 // Moodle structure varies, but usually check 'gradingstatus' or 'grade'
-                 totalPending = submissions.where((s) => s['status'] == 'submitted' && (s['gradingstatus'] != 'graded')).length;
-              }
-            }
-         }
-      }
-
-      if (mounted) {
-        setState(() {
-          _pendingGradingCount = totalPending;
-          _isLoadingStats = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching stats: $e');
-      if (mounted) setState(() => _isLoadingStats = false);
-    }
-  }
-
-  void _handleLogout() async {
-    final controller = ref.read(authControllerProvider.notifier);
-    await controller.signOut(ref, context);
-  }
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
+    final userAsync =
+        ref.watch(authControllerProvider); // Current Moodle Profile
+    final coursesAsync = ref.watch(instructorCoursesProvider);
+
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
-        title: const Text('Instructor Panel'),
+        title: const Text('Instructor Dashboard'),
+        leading: IconButton(
+          icon: const CircleAvatar(
+            child: Icon(Icons.person),
+          ),
+          onPressed: () {
+            _scaffoldKey.currentState?.openDrawer();
+          },
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
+            onPressed: () async {
+              await ref
+                  .read(authControllerProvider.notifier)
+                  .signOut(ref, context);
+            },
           ),
         ],
       ),
+      drawer: const SideMenuDrawer(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
-            Card(
-              color: Theme.of(context).primaryColor,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 30,
-                      child: Icon(Icons.school, size: 30, color: Colors.teal),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Welcome Back,',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        Text(
-                          currentUser?.displayName ?? 'Instructor',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            // Welcome Header (Matching Student Dashboard)
+            userAsync.when(
+              data: (user) => Text(
+                'Welcome, ${user?.firstname ?? "Instructor"}!',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              loading: () => const Text('Welcome, Instructor!'),
+              error: (_, __) => const Text('Welcome, Instructor!'),
+            ),
+            const SizedBox(height: 24),
+
+            // Courses Section
+            Text(
+              'My Courses',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+
+            coursesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(
+                child: Text(
+                  'Failed to load courses. Please pull to refresh.',
+                  style: TextStyle(color: Colors.red[300]),
                 ),
               ),
+              data: (courses) {
+                if (courses.isEmpty) {
+                  return const Center(
+                    child: Text('No courses assigned.'),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: courses.length,
+                  itemBuilder: (context, index) {
+                    return InstructorCourseCard(course: courses[index]);
+                  },
+                );
+              },
             ),
-            const SizedBox(height: 24),
-
-            // Quick Actions (Attendance & Grading)
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.qr_code_scanner,
-                    title: 'Attendance',
-                    value: 'Scan',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const QRScannerScreen()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.assignment_turned_in,
-                    title: 'Pending Grading',
-                    value: _isLoadingStats ? '...' : _pendingGradingCount.toString(),
-                    color: Colors.blue,
-                    onTap: () {
-                      // Navigate to Grading/Submissions Screen
-                      // For now, just show a message or implement list navigation later
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Navigate to Submissions List')),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // My Courses Section
-            const Text(
-              'My Courses',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildCoursesList(),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+class InstructorCourseCard extends ConsumerStatefulWidget {
+  final MoodleCourseModel course;
+
+  const InstructorCourseCard({super.key, required this.course});
+
+  @override
+  ConsumerState<InstructorCourseCard> createState() =>
+      _InstructorCourseCardState();
+}
+
+class _InstructorCourseCardState extends ConsumerState<InstructorCourseCard> {
+  int? _studentCount;
+  int? _submissionCount;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCourseStats();
+  }
+
+  Future<void> _fetchCourseStats() async {
+    if (!mounted) return;
+
+    final service = ref.read(moodleInstructorServiceProvider);
+    final token = await ref.read(moodleAuthServiceProvider).getStoredToken();
+
+    if (token == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    try {
+      // 1. Fetch Participants
+      final participants =
+          await service.getEnrolledUsers(token, widget.course.id);
+
+      // 2. Fetch Assignments & Submissions
+      final assignments = await service.getAssignments(token, widget.course.id);
+      int submissions = 0;
+
+      if (assignments.isNotEmpty) {
+        final assignmentIds =
+            assignments.map<int>((a) => a['id'] as int).toList();
+        final allSubmissions =
+            await service.getSubmissions(token, assignmentIds);
+        // Count submissions that are 'submitted'
+        submissions =
+            allSubmissions.where((s) => s['status'] == 'submitted').length;
+      }
+
+      if (mounted) {
+        setState(() {
+          _studentCount = participants.length;
+          _submissionCount = submissions;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching stats for course ${widget.course.id}: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  InstructorCourseDetailScreen(course: widget.course),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 32, color: color),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.class_,
+                        color: Theme.of(context).primaryColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.course.fullname,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          widget.course.shortname,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
               const SizedBox(height: 8),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              _loading
+                  ? const Center(child: LinearProgressIndicator())
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(context, Icons.group,
+                            '${_studentCount ?? 0}', 'Students'),
+                        _buildStatItem(context, Icons.assignment_turned_in,
+                            '${_submissionCount ?? 0}', 'Submissions'),
+                      ],
+                    ),
             ],
           ),
         ),
@@ -235,65 +242,31 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
     );
   }
 
-  Widget _buildCoursesList() {
-    if (currentUser == null) return const SizedBox.shrink();
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('courses')
-          .where('instructorId', isEqualTo: currentUser!.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: Text('No courses assigned.')),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
-            final course = Course.fromMap(data); // Assuming Course model exists
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.book, color: Colors.teal),
-                ),
-                title: Text(course.name),
-                subtitle: Text('${course.schoolCategory} • ${course.duration}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // Navigate to Course Details for Instructor
-                  // e.g., CourseManagementScreen
-                },
+  Widget _buildStatItem(
+      BuildContext context, IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
-            );
-          },
-        );
-      },
+            ),
+          ],
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 }
-

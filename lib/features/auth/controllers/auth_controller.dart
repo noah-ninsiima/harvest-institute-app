@@ -74,31 +74,64 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
     }
   }
 
-  // Moodle Login & Firestore Sync
-  Future<void> signInWithMoodle(String username, String password) async {
-    debugPrint('Starting Moodle Sign In for user: $username');
+  // Unified Login Strategy: Moodle -> Moodle(Username) -> Firebase
+  Future<void> signIn(String input, String password) async {
+    debugPrint('Starting Unified Sign In for: $input');
     state = const AsyncValue.loading();
+
+    // 1. Try Moodle Login (as provided)
     try {
-      // 1. Moodle Login
-      final token = await _moodleAuthService.login(username, password);
-      debugPrint('Moodle Token acquired.');
-
-      // 2. Get User Profile from Moodle
-      final moodleUser = await _moodleAuthService.getUserProfile(token);
-      debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
-
-      // CRITICAL: Update state immediately so UI can react
-      state = AsyncValue.data(moodleUser);
-
-      // 3. Silent Sync to Firestore
-      await _syncMoodleUserToFirestore(moodleUser);
-      debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
-
-      debugPrint('Moodle Sign In Successful.');
-    } catch (e, st) {
-      debugPrint('Moodle Sign In Failed: $e');
-      state = AsyncValue.error(e, st);
+      await _performMoodleLogin(input, password);
+      return; // Success
+    } catch (e) {
+      debugPrint('Moodle Direct Login Failed: $e');
     }
+
+    // 2. If input is email, try Moodle Login with username part
+    if (input.contains('@')) {
+      final username = input.split('@')[0];
+      try {
+        debugPrint('Retrying Moodle Login with username: $username');
+        await _performMoodleLogin(username, password);
+        return; // Success
+      } catch (e) {
+        debugPrint('Moodle Username Login Failed: $e');
+      }
+    }
+
+    // 3. Try Firebase Login (Fallback)
+    try {
+      debugPrint('Attempting Firebase Login...');
+      await _authRepository.signInWithEmailAndPassword(input, password);
+      // Firebase auth state change will trigger UI update via streams
+      // We can clear the local loading state
+      state = const AsyncValue.data(null);
+      debugPrint('Firebase Sign In Successful.');
+      return;
+    } catch (e) {
+      debugPrint('Firebase Sign In Failed: $e');
+      // If all fail, report the last meaningful error or a generic one
+      // We'll report the generic failure since we tried multiple things
+      state = AsyncValue.error(
+          'Login failed. Please check your credentials.', StackTrace.current);
+    }
+  }
+
+  Future<void> _performMoodleLogin(String username, String password) async {
+    // 1. Moodle Login
+    final token = await _moodleAuthService.login(username, password);
+    debugPrint('Moodle Token acquired.');
+
+    // 2. Get User Profile from Moodle
+    final moodleUser = await _moodleAuthService.getUserProfile(token);
+    debugPrint('Moodle Profile fetched: ${moodleUser.fullName}');
+
+    // CRITICAL: Update state immediately so UI can react
+    state = AsyncValue.data(moodleUser);
+
+    // 3. Silent Sync to Firestore
+    await _syncMoodleUserToFirestore(moodleUser);
+    debugPrint('Firestore Sync complete for ${moodleUser.userid}.');
   }
 
   Future<void> _syncMoodleUserToFirestore(MoodleUserModel moodleUser) async {
@@ -113,6 +146,13 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         ? moodleUser.email
         : '${moodleUser.username}@moodle.placeholder';
 
+    // Determine Role: Temporary check for specific instructor until dynamic role API is available
+    UserRole userRole = UserRole.student;
+    if (moodleUser.username.toLowerCase() == 'kizirijesse' ||
+        moodleUser.username.toLowerCase().contains('kiziri')) {
+      userRole = UserRole.instructor;
+    }
+
     if (!docSnapshot.exists) {
       // Create new user document
       final newUser = UserModel(
@@ -120,15 +160,27 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
         email: userEmail,
         fullName: moodleUser.fullName,
         username: moodleUser.username,
-        role: UserRole.student, // Default role
+        role: userRole,
         contact: '', // Not available from initial Moodle profile
         createdAt: DateTime.now(),
       );
 
       await userDocRef.set(newUser.toMap());
-      debugPrint('Created new Firestore user for Moodle user: $moodleUid');
+      debugPrint(
+          'Created new Firestore user for Moodle user: $moodleUid with role $userRole');
     } else {
       debugPrint('Firestore user already exists for Moodle user: $moodleUid');
+      // Check if role needs update for existing users who should be instructors
+      // Using loose check on username for Kiziri Jesse
+      if (moodleUser.username.toLowerCase() == 'kizirijesse' ||
+          moodleUser.username.toLowerCase().contains('kiziri')) {
+        final existingRole = docSnapshot.data()?['role'];
+        if (existingRole != 'instructor' && existingRole != 'teacher') {
+          await userDocRef.update({'role': 'instructor'});
+          debugPrint('Updated role to instructor for existing user $moodleUid');
+        }
+      }
+
       // Optional: Update existing data if needed (e.g. name change in Moodle)
       await userDocRef.update({
         'fullName': moodleUser.fullName,
