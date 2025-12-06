@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/moodle_course_model.dart';
 import '../providers/instructor_providers.dart';
-import '../../auth/controllers/auth_controller.dart';
 import 'submission_list_screen.dart';
 
 class InstructorCourseDetailScreen extends ConsumerStatefulWidget {
@@ -39,6 +38,9 @@ class _InstructorCourseDetailScreenState
         title: Text(widget.course.fullname),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white54,
+          indicatorColor: Theme.of(context).colorScheme.secondary,
           tabs: const [
             Tab(text: 'Students Enrolled', icon: Icon(Icons.people)),
             Tab(text: 'Assignments Submitted', icon: Icon(Icons.assignment)),
