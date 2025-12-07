@@ -125,7 +125,7 @@ class _StudentDashboardScreenState
                 Expanded(
                   child: QuickActionCard(
                     icon: Icons.qr_code_scanner,
-                    label: 'Scan QR',
+                    label: 'Register Attendance',
                     onTap: () {
                       Navigator.push(
                         context,

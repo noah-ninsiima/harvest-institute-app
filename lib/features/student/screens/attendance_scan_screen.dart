@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../../services/attendance_service.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../../services/firestore_service.dart';
 
 class AttendanceScanScreen extends ConsumerStatefulWidget {
   const AttendanceScanScreen({super.key});
@@ -11,12 +11,10 @@ class AttendanceScanScreen extends ConsumerStatefulWidget {
   ConsumerState<AttendanceScanScreen> createState() => _AttendanceScanScreenState();
 }
 
-class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen>
-    with WidgetsBindingObserver {
+class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen> with WidgetsBindingObserver {
   final MobileScannerController controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
-  final AttendanceService _attendanceService = AttendanceService();
   bool _isProcessing = false;
 
   @override
@@ -25,51 +23,57 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen>
     super.dispose();
   }
 
-  Future<void> _handleBarcode(BarcodeCapture capture) async {
+  Future<void> _processCode(String scannedValue) async {
     if (_isProcessing) return;
-
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
-
-    final String? scannedValue = barcodes.first.rawValue;
-    if (scannedValue == null || scannedValue.isEmpty) return;
 
     setState(() {
       _isProcessing = true;
     });
 
-    // Pause camera while processing
-    // controller.stop(); // Stopping can be aggressive, maybe just pause or ignore events
-
     try {
-      // 1. Get Current User
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('User not logged in');
+      // Format expected: courseId:YYYY-MM-DD (e.g., 101:2025-12-06)
+      final parts = scannedValue.split(':');
+      if (parts.length != 2) {
+        throw Exception('Invalid QR Code Format');
       }
 
-      // 2. Mark Attendance
-      await _attendanceService.markAttendance(scannedValue, user.uid);
+      final int courseId = int.tryParse(parts[0]) ?? 0;
+      if (courseId == 0) throw Exception('Invalid Course ID');
+
+      final String qrDate = parts[1];
+      final String today = DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
+
+      if (qrDate != today) {
+        throw Exception('Code expired or invalid date ($qrDate)');
+      }
+
+      // Get Moodle User ID
+      final authState = ref.read(authControllerProvider).value;
+      if (authState == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Call Firestore Service
+      final firestoreService = ref.read(firestoreServiceProvider);
+      await firestoreService.markAttendance(
+        studentId: 'moodle_${authState.userid}',
+        studentName: authState.fullName,
+        courseId: courseId,
+        date: today,
+      );
 
       if (mounted) {
-        // 3. Success Dialog
         await showDialog(
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Attendance Marked'),
-              ],
-            ),
-            content: const Text('You have been successfully marked present.'),
+            title: const Text('Success'),
+            content: const Text('Attendance marked successfully!'),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(ctx).pop(); // Close dialog
-                  Navigator.of(context).pop(); // Return to Dashboard
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pop(); // Return to dashboard
                 },
                 child: const Text('OK'),
               ),
@@ -79,23 +83,16 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen>
       }
     } catch (e) {
       if (mounted) {
-        // 4. Error Dialog
         await showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.error, color: Colors.red),
-                SizedBox(width: 8),
-                Text('Scan Failed'),
-              ],
-            ),
+            title: const Text('Error'),
             content: Text(e.toString().replaceAll('Exception: ', '')),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(ctx).pop(); // Close dialog
-                  // Resume scanning logic
+                  Navigator.of(ctx).pop();
+                  // Reset processing to allow scanning again
                   setState(() {
                     _isProcessing = false;
                   });
@@ -106,109 +103,98 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen>
           ),
         );
       }
+    } finally {
+      if (mounted && _isProcessing) {
+         setState(() {
+           _isProcessing = false;
+         });
+      }
     }
+  }
+
+  Future<void> _handleBarcode(BarcodeCapture capture) async {
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final String? scannedValue = barcodes.first.rawValue;
+    if (scannedValue == null || scannedValue.isEmpty) return;
+    
+    await _processCode(scannedValue);
   }
 
   @override
   Widget build(BuildContext context) {
-    final scanWindow = Rect.fromCenter(
-      center: MediaQuery.of(context).size.center(Offset.zero),
-      width: 250,
-      height: 250,
-    );
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Attendance QR')),
-      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Scan Attendance QR'),
+        actions: [
+          // Fallback for emulator testing
+          IconButton(
+            icon: const Icon(Icons.keyboard),
+            onPressed: () {
+              _showManualEntryDialog(context);
+            },
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           MobileScanner(
             controller: controller,
             onDetect: _handleBarcode,
-            scanWindow: scanWindow,
           ),
-          // Dark Overlay with Cutout
-          ColorFiltered(
-            colorFilter: const ColorFilter.mode(
-              Colors.black87,
-              BlendMode.srcOut,
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    backgroundBlendMode: BlendMode.dstOut,
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 250,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Green Border
-          Align(
-            alignment: Alignment.center,
+          Center(
             child: Container(
               width: 250,
               height: 250,
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.green, width: 3),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-          // Instructions
-          Positioned(
+          const Positioned(
             bottom: 50,
             left: 0,
             right: 0,
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Align QR code within the frame',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
+            child: Text(
+              'Align QR Code within the frame',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 16, backgroundColor: Colors.black54),
             ),
           ),
-          // Loading Overlay
-          if (_isProcessing)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text(
-                      'Processing...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualEntryDialog(BuildContext context) {
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Manual Entry (Dev Only)'),
+        content: TextField(
+          controller: textController,
+          decoration: const InputDecoration(
+            labelText: 'Enter Code (courseId:YYYY-MM-DD)',
+            hintText: 'e.g. 101:2025-12-06',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _processCode(textController.text.trim());
+            },
+            child: const Text('Submit'),
+          ),
         ],
       ),
     );
   }
 }
-
