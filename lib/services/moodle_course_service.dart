@@ -69,5 +69,35 @@ class MoodleCourseService {
       rethrow;
     }
   }
-}
 
+  Future<void> enrolUser(String token, int courseId) async {
+    try {
+      final response = await _dio.post(
+        '/webservice/rest/server.php',
+        data: {
+          'wstoken': token,
+          'wsfunction': 'enrol_self_enrol_user',
+          'moodlewsrestformat': 'json',
+          'courseid': courseId,
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic> &&
+            (data.containsKey('errorcode') || data.containsKey('exception'))) {
+          throw Exception(data['message']);
+        }
+      } else {
+        throw Exception(
+            'Failed to enroll user. Status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error enrolling user: $e');
+      rethrow;
+    }
+  }
+}

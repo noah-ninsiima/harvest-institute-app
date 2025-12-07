@@ -123,7 +123,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     controller: _emailController,
                     label: 'Email',
                     icon: Icons.email_outlined,
-                    readOnly: true,
+                    readOnly: false, // Made editable as requested
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -133,7 +133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     keyboardType: TextInputType.phone,
                   ),
                   const SizedBox(height: 32),
-                  _buildSaveButton(),
+                  _buildSaveButton(user),
                   const SizedBox(height: 16),
                   _buildChangePasswordButton(),
                   const SizedBox(height: 32),
@@ -172,7 +172,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           right: 0,
           child: GestureDetector(
             onTap: () {
-              ref.read(profileProvider.notifier).uploadImage();
+              ref.read(profileProvider.notifier).uploadImage(user.uid);
             },
             child: Container(
               padding: const EdgeInsets.all(8),
@@ -233,7 +233,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildSaveButton() {
+  Widget _buildSaveButton(UserModel user) {
     final isLoading = ref.watch(profileProvider).isLoading;
 
     return SizedBox(
@@ -245,9 +245,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             : () async {
                 if (_formKey.currentState!.validate()) {
                   await ref.read(profileProvider.notifier).updateProfile(
+                        uid: user.uid,
                         username: _usernameController.text,
                         contact: _phoneController.text,
                         fullName: _fullNameController.text,
+                        email: _emailController.text,
                       );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
