@@ -18,20 +18,21 @@ class ProfileController extends StateNotifier<AsyncValue<void>> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> uploadImage() async {
+  Future<void> uploadImage(String uid) async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
 
       state = const AsyncValue.loading();
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('No user logged in');
+      // Use provided uid instead of _auth.currentUser
+      // final user = _auth.currentUser;
+      // if (user == null) throw Exception('No user logged in');
 
-      final ref = _storage.ref().child('user_images/${user.uid}.jpg');
+      final ref = _storage.ref().child('user_images/$uid.jpg');
       await ref.putFile(File(image.path));
       final url = await ref.getDownloadURL();
 
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(uid).update({
         'photoUrl': url,
       });
 
@@ -42,20 +43,23 @@ class ProfileController extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<void> updateProfile({
+    required String uid,
     required String username,
     required String contact,
-    required String
-        fullName, // Added fullName as it's usually editable too, though user mainly mentioned Username/Phone
+    required String fullName,
+    required String email,
   }) async {
     state = const AsyncValue.loading();
     try {
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('No user logged in');
+      // Use provided uid
+      // final user = _auth.currentUser;
+      // if (user == null) throw Exception('No user logged in');
 
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(uid).update({
         'username': username,
         'contact': contact,
         'fullName': fullName,
+        'email': email,
       });
 
       state = const AsyncValue.data(null);

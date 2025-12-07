@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Import for kIsWeb
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutterwave_standard/flutterwave.dart';
 import 'package:uuid/uuid.dart';
@@ -50,19 +51,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       // Dynamically set payment options based on selection
       // Note: Flutterwave allows comma-separated string for options
-      String paymentOptions = "card, mobilemoneyuganda"; 
+      String paymentOptions = "card, mobilemoneyuganda";
       if (_selectedMethod == PaymentMethod.card) {
-          paymentOptions = "card";
+        paymentOptions = "card";
       } else {
-          paymentOptions = "mobilemoneyuganda";
+        paymentOptions = "mobilemoneyuganda";
       }
 
       final txRef = const Uuid().v1();
 
       final Flutterwave flutterwave = Flutterwave(
-        publicKey: "FLWPUBK_TEST-SANDBOX", // Placeholder
+        publicKey:
+            "FLWPUBK_TEST-3818d4ff3308d1d785211b81216c1949-X", // Sandbox Public Key
         currency: "UGX",
-        redirectUrl: "https://google.com",
+        redirectUrl: "https://harvest-institute.com/payment-redirect",
         txRef: txRef,
         amount: _amountController.text,
         customer: customer,
@@ -77,11 +79,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         // Record payment in Firestore
         final userId = 'moodle_${moodleUser.userid}';
         await ref.read(paymentServiceProvider).recordPayment(
-          userId: userId,
-          amount: double.tryParse(_amountController.text) ?? 0.0,
-          paymentMethod: _selectedMethod == PaymentMethod.card ? 'Card' : 'Mobile Money',
-          txRef: response.txRef ?? txRef,
-        );
+              userId: userId,
+              amount: double.tryParse(_amountController.text) ?? 0.0,
+              paymentMethod: _selectedMethod == PaymentMethod.card
+                  ? 'Card'
+                  : 'Mobile Money',
+              txRef: response.txRef ?? txRef,
+            );
 
         if (mounted) {
           showDialog(
@@ -103,12 +107,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         }
       } else {
         if (mounted) {
-          _showErrorDialog("Transaction Failed");
+          // Improve error message for web users
+          String msg = "Transaction Failed";
+          if (kIsWeb &&
+              (response.status == null || response.status == "error")) {
+            msg +=
+                "\n\nNote: On Web, this is often due to CORS security. Please try on an Emulator or Real Device.";
+          }
+          _showErrorDialog(msg);
         }
       }
     } catch (e) {
       if (mounted) {
-        _showErrorDialog("Error: $e");
+        String msg = "Error: $e";
+        if (e.toString().contains("ClientException") ||
+            e.toString().contains("XMLHttpRequest")) {
+          msg =
+              "Web Security Error: Your browser blocked the request (CORS). Please run on Android/iOS Emulator.";
+        }
+        _showErrorDialog(msg);
       }
     } finally {
       if (mounted) {
@@ -139,7 +156,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       appBar: AppBar(
         title: const Text('Pay Tuition'),
       ),
-      body: SingleChildScrollView( // Added scroll view for smaller screens
+      body: SingleChildScrollView(
+        // Added scroll view for smaller screens
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -151,9 +169,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              
+
               // Payment Method Selection
-              const Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Payment Method:',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -180,7 +199,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           _selectedMethod = value!;
                         });
                       },
-                       contentPadding: EdgeInsets.zero,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ],
@@ -206,7 +225,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Phone number field - only show/require if Mobile Money is selected or if we want to collect it anyway
               // Flutterwave usually requires phone for MM, but optional for Card
               if (_selectedMethod == PaymentMethod.mobileMoney)
@@ -219,26 +238,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     hintText: 'e.g., 2567...',
                   ),
                   validator: (value) {
-                    if (_selectedMethod == PaymentMethod.mobileMoney && (value == null || value.isEmpty)) {
+                    if (_selectedMethod == PaymentMethod.mobileMoney &&
+                        (value == null || value.isEmpty)) {
                       return 'Please enter a phone number';
                     }
                     return null;
                   },
                 ),
-                
+
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isLoading ? null : _handlePayment,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.green, // Harvest Institute brand color approximation
+                  backgroundColor: Colors
+                      .green, // Harvest Institute brand color approximation
                   foregroundColor: Colors.white,
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        _selectedMethod == PaymentMethod.card 
-                            ? 'Pay with Card' 
+                        _selectedMethod == PaymentMethod.card
+                            ? 'Pay with Card'
                             : 'Pay with Mobile Money',
                         style: const TextStyle(fontSize: 18),
                       ),
