@@ -1,4 +1,5 @@
 Harvest Institute Mobile App 🎓
+
 A hybrid Learning Management System (LMS) mobile application built with Flutter. This app bridges the gap between academic learning (powered by Moodle) and administrative operations (powered by Firebase), specifically tailored for the Harvest Institute with Mobile Money integration.
 
 📱 Features
