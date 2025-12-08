@@ -54,7 +54,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final txRef = const Uuid().v1();
 
       final Flutterwave flutterwave = Flutterwave(
-        context: context,
         publicKey: "FLWPUBK_TEST-3818d4ff3308d1d785211b81216c1949-X",
         currency: "UGX",
         redirectUrl: "https://harvest-institute.com/payment-redirect",
@@ -66,11 +65,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         isTestMode: true,
       );
 
-      final ChargeResponse response = await flutterwave.charge();
+      final ChargeResponse response = await flutterwave.charge(context);
 
       // LOGGING
       debugPrint("Flutterwave Status: ${response.status}");
-      debugPrint("Flutterwave Message: ${response.message}"); // Use message if available
+      // debugPrint("Flutterwave Message: ${response.message}"); // 'message' not available in this version
       debugPrint("Flutterwave TxRef: ${response.txRef}");
 
       if (response.success == true && response.status == "successful") {
@@ -107,7 +106,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         if (mounted) {
           // Failure Logic
           // Show the ACTUAL message from Flutterwave in the dialog
-          String msg = "Failed: ${response.message ?? response.status}";
+          String msg = "Failed: ${response.status}";
           _showErrorDialog(msg);
         }
       }

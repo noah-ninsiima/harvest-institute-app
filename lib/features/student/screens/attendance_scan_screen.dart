@@ -53,7 +53,6 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen> wit
 
       if (qrDate != today) {
         throw Exception('Code expired or invalid date ($qrDate)');
-        // debugPrint('Date mismatch ignored for testing: QR=$qrDate, Today=$today');
       }
 
       // Get Moodle User ID
@@ -171,9 +170,9 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen> wit
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white, fontSize: 16, backgroundColor: Colors.black54),
             ),
-          ),
-        ],
-      ),
+                    ),
+                  ],
+                ),
     );
   }
 
@@ -201,7 +200,7 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen> wit
               _processCode(textController.text.trim());
             },
             child: const Text('Submit'),
-          ),
+            ),
         ],
       ),
     );
