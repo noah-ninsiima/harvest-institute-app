@@ -1,16 +1,61 @@
-# myapp
+Harvest Institute Mobile App 🎓
+A hybrid Learning Management System (LMS) mobile application built with Flutter. This app bridges the gap between academic learning (powered by Moodle) and administrative operations (powered by Firebase), specifically tailored for the Harvest Institute with Mobile Money integration.
 
-A new Flutter project.
+📱 Features
+For Students
+Secure Login: Direct authentication via Moodle credentials.
 
-## Getting Started
+My Courses: View enrolled courses and completion progress (0-100%).
 
-This project is a starting point for a Flutter application.
+Academic Data: Access grades, view assignments, and submit work (via external links).
 
-A few resources to get you started if this is your first Flutter project:
+QR Attendance: Register class attendance by scanning dynamic QR codes.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Tuition Payments: Integrated Flutterwave gateway supporting MTN Mobile Money, Airtel Money, and Bank Cards (UGX).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+For Instructors
+Course Insights: View total enrolled students per course.
+
+Attendance Logs: Real-time view of student attendance records filtered by date.
+
+Assignment Tracking: View submission counts and status.
+
+🏗 Architecture
+This project uses a Hybrid Backend Architecture:
+
+Moodle LMS (The "Brain"):
+
+Source of Truth for: Users, Courses, Enrollments, Grades, and Assignments.
+
+Communication: REST API (Token-based Auth).
+
+Firebase Firestore (The "Ledger"):
+
+Source of Truth for: Attendance Logs and Payment Receipts.
+
+Reason: Faster read/write for real-time mobile features that Moodle plugins don't handle natively.
+
+🛠 Tech Stack
+Framework: Flutter (Dart)
+
+State Management: Riverpod (flutter_riverpod)
+
+Networking: Dio (HTTP client for Moodle API)
+
+Database: Cloud Firestore
+
+Payments: Flutterwave Standard SDK (flutterwave_standard)
+
+Scanner: Mobile Scanner (mobile_scanner)
+
+Storage: Flutter Secure Storage (For keeping tokens safe)
+
+🚀 Getting Started
+Prerequisites
+Flutter SDK (3.x or higher)
+
+Android Studio / VS Code
+
+A Moodle Instance (v3.9+) with Web Services enabled.
+
+A Firebase Project.
