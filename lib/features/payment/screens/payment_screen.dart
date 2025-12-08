@@ -49,20 +49,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         email: moodleUser.email,
       );
 
-      // Dynamically set payment options based on selection
-      // Note: Flutterwave allows comma-separated string for options
-      String paymentOptions = "card, mobilemoneyuganda";
-      if (_selectedMethod == PaymentMethod.card) {
-        paymentOptions = "card";
-      } else {
-        paymentOptions = "mobilemoneyuganda";
-      }
+      final String paymentOptions = "card,mobilemoneyuganda";
 
       final txRef = const Uuid().v1();
 
       final Flutterwave flutterwave = Flutterwave(
-        publicKey:
-            "FLWPUBK_TEST-3818d4ff3308d1d785211b81216c1949-X", // Sandbox Public Key
+        publicKey: "FLWPUBK_TEST-3818d4ff3308d1d785211b81216c1949-X",
         currency: "UGX",
         redirectUrl: "https://harvest-institute.com/payment-redirect",
         txRef: txRef,
@@ -75,7 +67,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       final ChargeResponse response = await flutterwave.charge(context);
 
-      if (response.success == true) {
+      // LOGGING
+      debugPrint("Flutterwave Status: ${response.status}");
+      debugPrint("Flutterwave Message: ${response.status}"); // Fallback as message might be null
+      debugPrint("Flutterwave TxRef: ${response.txRef}");
+
+      if (response.success == true && response.status == "successful") {
         // Record payment in Firestore
         final userId = 'moodle_${moodleUser.userid}';
         await ref.read(paymentServiceProvider).recordPayment(
@@ -108,7 +105,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       } else {
         if (mounted) {
           // Improve error message for web users
-          String msg = "Transaction Failed";
+          String msg = "Failed: ${response.status}";
           if (kIsWeb &&
               (response.status == null || response.status == "error")) {
             msg +=
