@@ -110,10 +110,11 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
       return;
     } catch (e) {
       debugPrint('Firebase Sign In Failed: $e');
-      // If all fail, report the last meaningful error or a generic one
-      // We'll report the generic failure since we tried multiple things
-      state = AsyncValue.error(
-          'Login failed. Please check your credentials.', StackTrace.current);
+      // Instead of setting state to error which triggers the red screen via ref.watch,
+      // we just log it here. The state remains null (not logged in).
+      // We rethrow the error so the UI can catch it and show a snackbar/inline message.
+      state = const AsyncValue.data(null);
+      throw Exception('Login failed. Please check your credentials.');
     }
   }
 
@@ -259,8 +260,8 @@ class AuthController extends StateNotifier<AsyncValue<MoodleUserModel?>> {
     }
   }
 
-  // Deprecated: Use logout() instead. Kept for compatibility if needed, but should be replaced.
   Future<void> signOut(WidgetRef ref, BuildContext context) async {
+    // Deprecated: Use ref.read(authControllerProvider.notifier).logout() and handle navigation in UI
     await logout();
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(

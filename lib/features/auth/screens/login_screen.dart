@@ -66,12 +66,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         },
         error: (error, stack) {
           debugPrint("Login Failed: $error");
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(error.toString()), backgroundColor: Colors.red),
-          );
+          // Don't navigate or show separate screen. Just update local error state.
           setState(() {
-            _errorMessage = error.toString();
+            // Clean up the error message if it's an exception
+            _errorMessage = error.toString().replaceAll('Exception: ', '');
           });
         },
         loading: () {

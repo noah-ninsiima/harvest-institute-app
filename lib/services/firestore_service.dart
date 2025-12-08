@@ -9,7 +9,7 @@ class FirestoreService {
   Future<void> markAttendance({
     required String studentId,
     required String studentName,
-    required int courseId,
+    required dynamic courseId, // Can be int (ID) or String (Shortname)
     required String date,
   }) async {
     try {
@@ -35,6 +35,19 @@ class FirestoreService {
     } catch (e) {
       throw Exception('Failed to mark attendance: $e');
     }
+  }
+
+  /// Real-time stream of attendance for a specific course and date.
+  /// [courseShortName] matches the QR code data (e.g., 'BAT01').
+  /// [date] format: "yyyy-MM-dd"
+  Stream<List<Map<String, dynamic>>> getCourseAttendanceStream(String courseShortName, String date) {
+    return _firestore
+        .collection('attendance')
+        .where('course_id', isEqualTo: courseShortName) // Matches 'BAT01'
+        .where('date', isEqualTo: date)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 }
 

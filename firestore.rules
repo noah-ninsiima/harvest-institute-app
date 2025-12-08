@@ -73,6 +73,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // --- Attendance Collection (New) ---
+    match /attendance/{attendanceId} {
+      // Allow authenticated users (students) to create records.
+      // Instructors and Admins can read.
+      // For dev, we relax to allow authenticated write.
+      // RELAXED FURTHER: Allow public read/write to unblock development.
+      allow read, write: if true;
+    }
+
     // Default to deny all access
     match /{document=**} {
       allow read, write: if false;

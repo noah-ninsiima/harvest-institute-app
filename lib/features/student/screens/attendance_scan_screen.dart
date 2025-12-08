@@ -31,14 +31,22 @@ class _AttendanceScanScreenState extends ConsumerState<AttendanceScanScreen> wit
     });
 
     try {
-      // Format expected: courseId:YYYY-MM-DD (e.g., 101:2025-12-06)
+      // Format expected: courseId:YYYY-MM-DD (e.g., 101:2025-12-06 or BAT01:2025-12-06)
       final parts = scannedValue.split(':');
       if (parts.length != 2) {
         throw Exception('Invalid QR Code Format');
       }
 
-      final int courseId = int.tryParse(parts[0]) ?? 0;
-      if (courseId == 0) throw Exception('Invalid Course ID');
+      // Support both int IDs and String shortnames
+      dynamic courseId;
+      final int? parsedId = int.tryParse(parts[0]);
+      if (parsedId != null) {
+        courseId = parsedId;
+      } else {
+        // If it's not a number, treat as shortname string (e.g., "BAT01")
+        if (parts[0].trim().isEmpty) throw Exception('Invalid Course ID');
+        courseId = parts[0].trim();
+      }
 
       final String qrDate = parts[1];
       final String today = DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD

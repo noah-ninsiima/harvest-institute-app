@@ -5,6 +5,7 @@ import '../../instructor/providers/instructor_providers.dart';
 import '../../shared/widgets/side_menu_drawer.dart';
 import '../../shared/models/moodle_course_model.dart';
 import '../../instructor/screens/instructor_course_detail_screen.dart';
+import '../../instructor/screens/attendance_log_screen.dart';
 
 class TeacherDashboard extends ConsumerStatefulWidget {
   const TeacherDashboard({super.key});
@@ -15,6 +16,64 @@ class TeacherDashboard extends ConsumerStatefulWidget {
 
 class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  void _showCourseSelectionForLogs(BuildContext context, List<MoodleCourseModel> courses) {
+    if (courses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No courses available to view logs.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SizedBox(
+        height: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Select Course for Logs',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: courses.length,
+                itemBuilder: (context, index) {
+                  final course = courses[index];
+                  return ListTile(
+                    leading: const Icon(Icons.class_outlined),
+                    title: Text(course.fullname),
+                    subtitle: Text(course.shortname),
+                    onTap: () {
+                      Navigator.pop(ctx); // Close modal
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AttendanceLogScreen(
+                            courseShortName: course.shortname, // CRITICAL: Pass shortname
+                            courseName: course.fullname,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +128,19 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
             const SizedBox(height: 24),
 
             // Courses Section
-            Text(
-              'My Courses',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'My Courses',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                TextButton.icon(
+                  onPressed: () => _showCourseSelectionForLogs(context, coursesAsync.value ?? []),
+                  icon: const Icon(Icons.history),
+                  label: const Text('Attendance Logs'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
